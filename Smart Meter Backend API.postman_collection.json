@@ -1,0 +1,3718 @@
+{
+	"info": {
+		"_postman_id": "97195530-7008-44bf-ae08-7bfa928d736e",
+		"name": "Smart Meter Backend API",
+		"description": "Comprehensive API collection for Smart Meter Backend System with hierarchy-based access control.\n\n**Hierarchy Levels:**\n- Root Admin (ETL Admin) - Full access to all endpoints\n- Tenant Admin - Manages tenant and below\n- Customer Admin - Manages customer and below\n- Consumer - Limited access to own data\n\n**Complete Flow:** Start from \"5. Complete Flow\" folder for step-by-step setup.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21114133"
+	},
+	"item": [
+		{
+			"name": "0. Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.token) {",
+									"        // Store token based on user level",
+									"        const entityId = response.data.user.entityId;",
+									"        pm.environment.set('token', response.data.token);",
+									"        pm.environment.set('userId', response.data.user.id);",
+									"        pm.environment.set('entityId', entityId);",
+									"        pm.environment.set('roleId', response.data.user.roleId);",
+									"        ",
+									"        // Check if root admin (entity_id would be null in entity table)",
+									"        // For now, store all tokens",
+									"        console.log('Token stored:', response.data.token.substring(0, 20) + '...');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@etl.com\",\n    \"password\": \"Admin@123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login with email and password. Token is automatically stored in environment."
+					},
+					"response": []
+				},
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"SecurePass@123\",\n    \"name\": \"New User\",\n    \"mobile_no\": \"1234567890\",\n    \"entity_id\": \"{{entityId}}\",\n    \"role_id\": \"{{roleId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register a new user. Requires entity_id and role_id."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/verify",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"verify"
+							]
+						},
+						"description": "Verify JWT token validity."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints - Login, Register, and Token Verification"
+		},
+		{
+			"name": "1. Root Admin - Full Access",
+			"item": [
+				{
+					"name": "Modules",
+					"item": [
+						{
+							"name": "List All Modules",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Get all system modules. Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Module by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/modules/:moduleId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules",
+										":moduleId"
+									],
+									"variable": [
+										{
+											"key": "moduleId",
+											"value": "{{moduleId}}"
+										}
+									]
+								},
+								"description": "Get module by ID. Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Module",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Report\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Create a new system module. Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Module",
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Module Name\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules/:moduleId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules",
+										":moduleId"
+									],
+									"variable": [
+										{
+											"key": "moduleId",
+											"value": "{{moduleId}}"
+										}
+									]
+								},
+								"description": "Update module. Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Module",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/modules/:moduleId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules",
+										":moduleId"
+									],
+									"variable": [
+										{
+											"key": "moduleId",
+											"value": "{{moduleId}}"
+										}
+									]
+								},
+								"description": "Delete module. Root Admin only. Warning: Check if module is referenced in roles."
+							},
+							"response": []
+						}
+					],
+					"description": "Module Management - Root Admin Only"
+				},
+				{
+					"name": "Profiles",
+					"item": [
+						{
+							"name": "List All Profiles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/profiles?entityId=null",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									],
+									"query": [
+										{
+											"key": "entityId",
+											"value": "null",
+											"description": "null for global profiles, entityId for entity-scoped"
+										}
+									]
+								},
+								"description": "Root Admin can see all profiles (global + entity-scoped). Use entityId=null for global only."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Profile by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/profiles/:profileId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles",
+										":profileId"
+									],
+									"variable": [
+										{
+											"key": "profileId",
+											"value": "{{profileId}}"
+										}
+									]
+								},
+								"description": "Get profile by ID. Root Admin can access global and entity-scoped profiles."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Global Profile",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Tenant\",\n    \"entity_id\": null,\n    \"attributes\": {\n        \"description\": \"Tenant level entity profile\",\n        \"type\": \"tenant\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Create global profile (entity_id = null). Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Entity-Scoped Profile",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Custom Tenant Profile\",\n    \"entity_id\": \"{{tenantEntityId}}\",\n    \"attributes\": {\n        \"description\": \"Custom profile for specific tenant\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Create entity-scoped profile. Root Admin can create for any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Profile",
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Profile Name\",\n    \"attributes\": {\n        \"description\": \"Updated description\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles/:profileId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles",
+										":profileId"
+									],
+									"variable": [
+										{
+											"key": "profileId",
+											"value": "{{profileId}}"
+										}
+									]
+								},
+								"description": "Update profile. Root Admin can update any profile."
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Profile",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/profiles/:profileId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles",
+										":profileId"
+									],
+									"variable": [
+										{
+											"key": "profileId",
+											"value": "{{profileId}}"
+										}
+									]
+								},
+								"description": "Delete profile. Warning: Check if profile is used by entities."
+							},
+							"response": []
+						}
+					],
+					"description": "Profile Management - Root Admin has full access"
+				},
+				{
+					"name": "Entities",
+					"item": [
+						{
+							"name": "List All Entities",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities?page=1&limit=100&profileId=",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										},
+										{
+											"key": "profileId",
+											"value": "",
+											"description": "Optional: Filter by profile ID"
+										}
+									]
+								},
+								"description": "Root Admin can see all entities across all tenants."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Entity by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{entityId}}"
+										}
+									]
+								},
+								"description": "Root Admin can access any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Entity Hierarchy",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities/:entityId/hierarchy",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										":entityId",
+										"hierarchy"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{entityId}}"
+										}
+									]
+								},
+								"description": "Get full hierarchy tree from entity (includes all descendants)."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Root Entity",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"ETL Admin\",\n    \"email_id\": \"admin@etl.com\",\n    \"mobile_no\": \"9999999999\",\n    \"profile_id\": \"{{adminProfileId}}\",\n    \"entity_id\": null,\n    \"attributes\": {\n        \"type\": \"root\",\n        \"description\": \"Root admin entity\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create root entity (entity_id = null). Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Tenant Entity",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"KMP Energy\",\n    \"email_id\": \"admin@kmp.com\",\n    \"mobile_no\": \"8888888888\",\n    \"profile_id\": \"{{tenantProfileId}}\",\n    \"entity_id\": \"{{rootEntityId}}\",\n    \"attributes\": {\n        \"type\": \"tenant\",\n        \"industry\": \"Energy\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create tenant entity under root entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Entity",
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Entity Name\",\n    \"email_id\": \"updated@example.com\",\n    \"mobile_no\": \"7777777777\",\n    \"attributes\": {\n        \"type\": \"updated\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{entityId}}"
+										}
+									]
+								},
+								"description": "Update entity. Root Admin can update any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Entity",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{entityId}}"
+										}
+									]
+								},
+								"description": "Delete entity. Warning: This will cascade delete all descendants."
+							},
+							"response": []
+						}
+					],
+					"description": "Entity Management - Root Admin has full access"
+				},
+				{
+					"name": "Roles",
+					"item": [
+						{
+							"name": "List Global Roles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/roles/entity/null",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles",
+										"entity",
+										"null"
+									]
+								},
+								"description": "List global roles (entity_id = null). Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "List Entity Roles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/roles/entity/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles",
+										"entity",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{entityId}}"
+										}
+									]
+								},
+								"description": "List roles for specific entity. Root Admin can access any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Role by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/roles/:roleId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles",
+										":roleId"
+									],
+									"variable": [
+										{
+											"key": "roleId",
+											"value": "{{roleId}}"
+										}
+									]
+								},
+								"description": "Get role by ID. Root Admin can access any role."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Global Role (Root Admin)",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Root Admin Role\",\n    \"entityId\": null,\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleEntityId}}\",\n            \"name\": \"Entity\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleUserId}}\",\n            \"name\": \"User\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleRoleId}}\",\n            \"name\": \"Role\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleProfileId}}\",\n            \"name\": \"Profile\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleModuleId}}\",\n            \"name\": \"Module\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": true\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create global role (entityId = null). Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Entity-Scoped Role",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Tenant Admin Role\",\n    \"entityId\": \"{{tenantEntityId}}\",\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleEntityId}}\",\n            \"name\": \"Entity\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleUserId}}\",\n            \"name\": \"User\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleRoleId}}\",\n            \"name\": \"Role\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": true\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create role for specific entity. Root Admin can create for any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Role",
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Role Name\",\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleEntityId}}\",\n            \"name\": \"Entity\",\n            \"read\": true,\n            \"write\": false\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles/:roleId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles",
+										":roleId"
+									],
+									"variable": [
+										{
+											"key": "roleId",
+											"value": "{{roleId}}"
+										}
+									]
+								},
+								"description": "Update role. Root Admin can update any role."
+							},
+							"response": []
+						}
+					],
+					"description": "Role Management - Root Admin has full access"
+				},
+				{
+					"name": "Users",
+					"item": [
+						{
+							"name": "List Users by Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/users/entity/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"entity",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{entityId}}"
+										}
+									]
+								},
+								"description": "List users for entity. Root Admin can access any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Get User by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/users/:userId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										":userId"
+									],
+									"variable": [
+										{
+											"key": "userId",
+											"value": "{{userId}}"
+										}
+									]
+								},
+								"description": "Get user by ID. Root Admin can access any user."
+							},
+							"response": []
+						},
+						{
+							"name": "Create User",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"tenantadmin@kmp.com\",\n    \"password\": \"TenantAdmin@123\",\n    \"name\": \"Tenant Admin User\",\n    \"mobile_no\": \"9876543210\",\n    \"entity_id\": \"{{tenantEntityId}}\",\n    \"role_id\": \"{{tenantAdminRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								},
+								"description": "Create user. Root Admin can create for any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Update User",
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated User Name\",\n    \"email\": \"updated@example.com\",\n    \"mobile_no\": \"9999999999\",\n    \"is_active\": true\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users/:userId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										":userId"
+									],
+									"variable": [
+										{
+											"key": "userId",
+											"value": "{{userId}}"
+										}
+									]
+								},
+								"description": "Update user. Root Admin can update any user."
+							},
+							"response": []
+						},
+						{
+							"name": "Delete User",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/users/:userId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										":userId"
+									],
+									"variable": [
+										{
+											"key": "userId",
+											"value": "{{userId}}"
+										}
+									]
+								},
+								"description": "Delete user (soft delete). Root Admin can delete any user."
+							},
+							"response": []
+						},
+						{
+							"name": "Change Password",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"currentPassword\": \"OldPassword@123\",\n    \"newPassword\": \"NewPassword@123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users/change-password",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"change-password"
+									]
+								},
+								"description": "Change current user's password."
+							},
+							"response": []
+						}
+					],
+					"description": "User Management - Root Admin has full access"
+				},
+				{
+					"name": "Meters",
+					"item": [
+						{
+							"name": "List Meters by Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/meters/entity/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters",
+										"entity",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{entityId}}"
+										}
+									]
+								},
+								"description": "List meters for entity. Root Admin can access any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Meter by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/meters/:meterId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters",
+										":meterId"
+									],
+									"variable": [
+										{
+											"key": "meterId",
+											"value": "{{meterId}}"
+										}
+									]
+								},
+								"description": "Get meter by ID. Root Admin can access any meter."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Meter",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"name\": \"Production Line A Meter\",\n    \"meterType\": \"PHYSICAL\",\n    \"attributes\": {\n        \"location\": \"Building 1, Floor 2\",\n        \"manufacturer\": \"ABB\",\n        \"model\": \"ABC123\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/meters",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters"
+									]
+								},
+								"description": "Create meter. Root Admin can create for any entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Meter",
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Meter Name\",\n    \"attributes\": {\n        \"location\": \"Updated Location\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/meters/:meterId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters",
+										":meterId"
+									],
+									"variable": [
+										{
+											"key": "meterId",
+											"value": "{{meterId}}"
+										}
+									]
+								},
+								"description": "Update meter. Root Admin can update any meter."
+							},
+							"response": []
+						}
+					],
+					"description": "Meter Management - Root Admin has full access"
+				}
+			],
+			"description": "Root Admin (ETL Admin) has access to ALL endpoints including:\n- Module Management (system-wide)\n- Global Profile Management\n- All Entity Operations\n- All User/Role/Meter Operations"
+		},
+		{
+			"name": "2. Tenant Admin - Tenant & Below",
+			"item": [
+				{
+					"name": "Profiles",
+					"item": [
+						{
+							"name": "List Accessible Profiles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Tenant Admin can see global profiles + profiles for accessible entities."
+							},
+							"response": []
+						},
+						{
+							"name": "List Entity Profiles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/profiles?entityId={{tenantEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									],
+									"query": [
+										{
+											"key": "entityId",
+											"value": "{{tenantEntityId}}"
+										}
+									]
+								},
+								"description": "List profiles for tenant's entity only."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Entity Profile",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Custom Customer Profile\",\n    \"entity_id\": \"{{tenantEntityId}}\",\n    \"attributes\": {\n        \"description\": \"Custom profile for tenant\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Create entity-scoped profile. Tenant Admin can create for own entity only."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Profile by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/profiles/:profileId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles",
+										":profileId"
+									],
+									"variable": [
+										{
+											"key": "profileId",
+											"value": "{{profileId}}"
+										}
+									]
+								},
+								"description": "Get profile. Can only access global or own entity profiles."
+							},
+							"response": []
+						}
+					],
+					"description": "Profile Management - Tenant Admin can manage entity-scoped profiles"
+				},
+				{
+					"name": "Entities",
+					"item": [
+						{
+							"name": "List Accessible Entities",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities?page=1&limit=100",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									],
+									"query": [
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								},
+								"description": "List entities in tenant's hierarchy (tenant + customers + consumers)."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Own Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities/{{tenantEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										"{{tenantEntityId}}"
+									]
+								},
+								"description": "Get tenant's own entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Entity Hierarchy",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities/{{tenantEntityId}}/hierarchy",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										"{{tenantEntityId}}",
+										"hierarchy"
+									]
+								},
+								"description": "Get full hierarchy from tenant (includes all customers and consumers)."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Customer Entity",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Ideal Energy\",\n    \"email_id\": \"admin@ideal.com\",\n    \"mobile_no\": \"7777777777\",\n    \"profile_id\": \"{{customerProfileId}}\",\n    \"entity_id\": \"{{tenantEntityId}}\",\n    \"attributes\": {\n        \"type\": \"customer\",\n        \"industry\": \"Manufacturing\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create customer entity under tenant. Tenant Admin can only create under own entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Own Entity",
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Updated Tenant Name\",\n    \"email_id\": \"updated@kmp.com\",\n    \"attributes\": {\n        \"type\": \"updated\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities/{{tenantEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										"{{tenantEntityId}}"
+									]
+								},
+								"description": "Update tenant's own entity."
+							},
+							"response": []
+						}
+					],
+					"description": "Entity Management - Tenant Admin can manage own hierarchy"
+				},
+				{
+					"name": "Roles",
+					"item": [
+						{
+							"name": "List Entity Roles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/roles/entity/{{tenantEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles",
+										"entity",
+										"{{tenantEntityId}}"
+									]
+								},
+								"description": "List roles for tenant's entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Entity Role",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Customer Admin Role\",\n    \"entityId\": \"{{customerEntityId}}\",\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleEntityId}}\",\n            \"name\": \"Entity\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleUserId}}\",\n            \"name\": \"User\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": true\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create role for customer entity. Tenant Admin can create for entities in own hierarchy."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Role by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/roles/:roleId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles",
+										":roleId"
+									],
+									"variable": [
+										{
+											"key": "roleId",
+											"value": "{{roleId}}"
+										}
+									]
+								},
+								"description": "Get role. Can only access global or own entity roles."
+							},
+							"response": []
+						}
+					],
+					"description": "Role Management - Tenant Admin can manage entity-scoped roles"
+				},
+				{
+					"name": "Users",
+					"item": [
+						{
+							"name": "List Users by Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/users/entity/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"entity",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{customerEntityId}}"
+										}
+									]
+								},
+								"description": "List users for entity in tenant's hierarchy."
+							},
+							"response": []
+						},
+						{
+							"name": "Create User",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"customeradmin@ideal.com\",\n    \"password\": \"CustomerAdmin@123\",\n    \"name\": \"Customer Admin User\",\n    \"mobile_no\": \"9876543210\",\n    \"entity_id\": \"{{customerEntityId}}\",\n    \"role_id\": \"{{customerAdminRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								},
+								"description": "Create user. Tenant Admin can create for entities in own hierarchy."
+							},
+							"response": []
+						},
+						{
+							"name": "Get User by ID",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/users/:userId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										":userId"
+									],
+									"variable": [
+										{
+											"key": "userId",
+											"value": "{{userId}}"
+										}
+									]
+								},
+								"description": "Get user. Can only access users in own hierarchy."
+							},
+							"response": []
+						}
+					],
+					"description": "User Management - Tenant Admin can manage users in own hierarchy"
+				},
+				{
+					"name": "Meters",
+					"item": [
+						{
+							"name": "List Meters by Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/meters/entity/:entityId",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters",
+										"entity",
+										":entityId"
+									],
+									"variable": [
+										{
+											"key": "entityId",
+											"value": "{{consumerEntityId}}"
+										}
+									]
+								},
+								"description": "List meters for entity in tenant's hierarchy."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Meter",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"name\": \"Production Line Meter\",\n    \"meterType\": \"PHYSICAL\",\n    \"attributes\": {\n        \"location\": \"Building A\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/meters",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters"
+									]
+								},
+								"description": "Create meter. Tenant Admin can create for entities in own hierarchy."
+							},
+							"response": []
+						}
+					],
+					"description": "Meter Management - Tenant Admin can manage meters in own hierarchy"
+				}
+			],
+			"description": "Tenant Admin has access to:\n- Own entity and all descendants (Customer, Consumer)\n- Entity-scoped Profiles (for own hierarchy)\n- Entity-scoped Roles (for own hierarchy)\n- Users in own hierarchy\n- Meters in own hierarchy\n\n**CANNOT access:**\n- Modules\n- Global Profiles\n- Other tenant's data"
+		},
+		{
+			"name": "3. Customer Admin - Customer & Below",
+			"item": [
+				{
+					"name": "Entities",
+					"item": [
+						{
+							"name": "List Accessible Entities",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "List entities in customer's hierarchy (customer + consumers)."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Own Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/entities/{{customerEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities",
+										"{{customerEntityId}}"
+									]
+								},
+								"description": "Get customer's own entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Consumer Entity",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Patanjali Industries\",\n    \"email_id\": \"admin@patanjali.com\",\n    \"mobile_no\": \"6666666666\",\n    \"profile_id\": \"{{consumerProfileId}}\",\n    \"entity_id\": \"{{customerEntityId}}\",\n    \"attributes\": {\n        \"type\": \"consumer\",\n        \"industry\": \"FMCG\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create consumer entity under customer. Customer Admin can only create under own entity."
+							},
+							"response": []
+						}
+					],
+					"description": "Entity Management - Customer Admin can manage own hierarchy"
+				},
+				{
+					"name": "Roles",
+					"item": [
+						{
+							"name": "List Entity Roles",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/roles/entity/{{customerEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles",
+										"entity",
+										"{{customerEntityId}}"
+									]
+								},
+								"description": "List roles for customer's entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Consumer Role",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Consumer User Role\",\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": false\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create role for consumer entity."
+							},
+							"response": []
+						}
+					],
+					"description": "Role Management - Customer Admin can manage roles in own hierarchy"
+				},
+				{
+					"name": "Users",
+					"item": [
+						{
+							"name": "Create Consumer User",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"consumer@patanjali.com\",\n    \"password\": \"Consumer@123\",\n    \"name\": \"Consumer User\",\n    \"mobile_no\": \"9876543210\",\n    \"entity_id\": \"{{consumerEntityId}}\",\n    \"role_id\": \"{{consumerRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								},
+								"description": "Create user for consumer entity."
+							},
+							"response": []
+						},
+						{
+							"name": "List Users by Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/users/entity/{{consumerEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"entity",
+										"{{consumerEntityId}}"
+									]
+								},
+								"description": "List users for consumer entity."
+							},
+							"response": []
+						}
+					],
+					"description": "User Management - Customer Admin can manage users in own hierarchy"
+				},
+				{
+					"name": "Meters",
+					"item": [
+						{
+							"name": "Create Meter",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"name\": \"Production Line A Meter\",\n    \"meterType\": \"PHYSICAL\",\n    \"attributes\": {\n        \"location\": \"Building 1, Production Floor\",\n        \"manufacturer\": \"Schneider Electric\",\n        \"model\": \"SE-001\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/meters",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters"
+									]
+								},
+								"description": "Create meter for consumer entity."
+							},
+							"response": []
+						},
+						{
+							"name": "List Meters by Entity",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/meters/entity/{{consumerEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters",
+										"entity",
+										"{{consumerEntityId}}"
+									]
+								},
+								"description": "List meters for consumer entity."
+							},
+							"response": []
+						}
+					],
+					"description": "Meter Management - Customer Admin can manage meters in own hierarchy"
+				}
+			],
+			"description": "Customer Admin has access to:\n- Own entity and descendants (Consumers)\n- Entity-scoped Profiles (for own hierarchy)\n- Entity-scoped Roles (for own hierarchy)\n- Users in own hierarchy\n- Meters in own hierarchy\n\n**CANNOT access:**\n- Modules\n- Global Profiles\n- Tenant or other tenant's data"
+		},
+		{
+			"name": "4. Consumer - Limited Access",
+			"item": [
+				{
+					"name": "Get Own Entity",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{consumerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/entities/{{consumerEntityId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"entities",
+								"{{consumerEntityId}}"
+							]
+						},
+						"description": "Get consumer's own entity information."
+					},
+					"response": []
+				},
+				{
+					"name": "List Own Meters",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{consumerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meters/entity/{{consumerEntityId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meters",
+								"entity",
+								"{{consumerEntityId}}"
+							]
+						},
+						"description": "List meters for consumer's own entity."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Meter by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{consumerToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meters/:meterId",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meters",
+								":meterId"
+							],
+							"variable": [
+								{
+									"key": "meterId",
+									"value": "{{meterId}}"
+								}
+							]
+						},
+						"description": "Get meter by ID. Consumer can only access meters in own entity."
+					},
+					"response": []
+				}
+			],
+			"description": "Consumer - Limited access to own entity and meters"
+		},
+		{
+			"name": "5. Complete Flow - Setup from Scratch",
+			"item": [
+				{
+					"name": "Step 1: Login as Root Admin (or Create)",
+					"item": [
+						{
+							"name": "Login Root Admin",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.token) {",
+											"        pm.environment.set('rootToken', response.data.token);",
+											"        pm.environment.set('rootUserId', response.data.user.id);",
+											"        pm.environment.set('rootEntityId', response.data.user.entityId);",
+											"        pm.environment.set('rootRoleId', response.data.user.roleId);",
+											"        console.log('Root Admin token stored');",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"admin@etl.com\",\n    \"password\": \"Admin@123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								},
+								"description": "Login as root admin. Update email/password if different."
+							},
+							"response": []
+						}
+					],
+					"description": "Login with root admin credentials"
+				},
+				{
+					"name": "Step 2: Create Global Profiles",
+					"item": [
+						{
+							"name": "Create Admin Profile",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('adminProfileId', response.data.id);",
+											"        console.log('Admin Profile ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Admin\",\n    \"entity_id\": null,\n    \"attributes\": {\n        \"description\": \"Root Admin Profile\",\n        \"type\": \"admin\",\n        \"level\": \"root\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Create Admin profile (global). Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Tenant Profile",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('tenantProfileId', response.data.id);",
+											"        console.log('Tenant Profile ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Tenant\",\n    \"entity_id\": null,\n    \"attributes\": {\n        \"description\": \"Tenant Level Profile\",\n        \"type\": \"tenant\",\n        \"level\": \"tenant\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Create Tenant profile (global)."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Customer Profile",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('customerProfileId', response.data.id);",
+											"        console.log('Customer Profile ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Customer\",\n    \"entity_id\": null,\n    \"attributes\": {\n        \"description\": \"Customer Level Profile\",\n        \"type\": \"customer\",\n        \"level\": \"customer\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Create Customer profile (global)."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Consumer Profile",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('consumerProfileId', response.data.id);",
+											"        console.log('Consumer Profile ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Consumer\",\n    \"entity_id\": null,\n    \"attributes\": {\n        \"description\": \"Consumer Level Profile\",\n        \"type\": \"consumer\",\n        \"level\": \"consumer\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/profiles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"profiles"
+									]
+								},
+								"description": "Create Consumer profile (global)."
+							},
+							"response": []
+						}
+					],
+					"description": "Create all global profiles: Admin, Tenant, Customer, Consumer"
+				},
+				{
+					"name": "Step 3: Create Modules",
+					"item": [
+						{
+							"name": "Create Entity Module",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('moduleEntityId', response.data.id);",
+											"        console.log('Entity Module ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Entity\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Create Entity module. Root Admin only."
+							},
+							"response": []
+						},
+						{
+							"name": "Create User Module",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('moduleUserId', response.data.id);",
+											"        console.log('User Module ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"User\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Create User module."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Role Module",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('moduleRoleId', response.data.id);",
+											"        console.log('Role Module ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Role\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Create Role module."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Profile Module",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('moduleProfileId', response.data.id);",
+											"        console.log('Profile Module ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Profile\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Create Profile module."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Module Module",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('moduleModuleId', response.data.id);",
+											"        console.log('Module Module ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Module\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Create Module module."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Meter Module",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('moduleMeterId', response.data.id);",
+											"        console.log('Meter Module ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Meter\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/modules",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"modules"
+									]
+								},
+								"description": "Create Meter module."
+							},
+							"response": []
+						}
+					],
+					"description": "Create all system modules: Entity, User, Role, Profile, Module, Meter"
+				},
+				{
+					"name": "Step 4: Create Root Entity",
+					"item": [
+						{
+							"name": "Create Root Entity (ETL Admin)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('rootEntityId', response.data.id);",
+											"        console.log('Root Entity ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"ETL Admin\",\n    \"email_id\": \"admin@etl.com\",\n    \"mobile_no\": \"9999999999\",\n    \"profile_id\": \"{{adminProfileId}}\",\n    \"entity_id\": null,\n    \"attributes\": {\n        \"type\": \"root\",\n        \"description\": \"Root admin entity\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create root entity (entity_id = null). This is the top-level entity."
+							},
+							"response": []
+						}
+					],
+					"description": "Create the root entity (ETL Admin entity). This entity has no parent (entity_id = null)."
+				},
+				{
+					"name": "Step 5: Create Root Admin Role",
+					"item": [
+						{
+							"name": "Create Root Admin Role",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('rootAdminRoleId', response.data.id);",
+											"        console.log('Root Admin Role ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Root Admin Role\",\n    \"entityId\": null,\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleEntityId}}\",\n            \"name\": \"Entity\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleUserId}}\",\n            \"name\": \"User\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleRoleId}}\",\n            \"name\": \"Role\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleProfileId}}\",\n            \"name\": \"Profile\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleModuleId}}\",\n            \"name\": \"Module\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": true\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create global role for root admin with all permissions."
+							},
+							"response": []
+						}
+					],
+					"description": "Create root admin role with full permissions (global role, entityId = null)"
+				},
+				{
+					"name": "Step 6: Create Root Admin User",
+					"item": [
+						{
+							"name": "Create Root Admin User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('rootAdminUserId', response.data.id);",
+											"        console.log('Root Admin User ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"admin@etl.com\",\n    \"password\": \"Admin@123\",\n    \"name\": \"Root Admin\",\n    \"mobile_no\": \"9999999999\",\n    \"entity_id\": \"{{rootEntityId}}\",\n    \"role_id\": \"{{rootAdminRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								},
+								"description": "Create root admin user. This user belongs to root entity and has root admin role."
+							},
+							"response": []
+						}
+					],
+					"description": "Create the root admin user account"
+				},
+				{
+					"name": "Step 7: Create Tenant Entity & Admin",
+					"item": [
+						{
+							"name": "Create Tenant Entity",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('tenantEntityId', response.data.id);",
+											"        console.log('Tenant Entity ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"KMP Energy\",\n    \"email_id\": \"admin@kmp.com\",\n    \"mobile_no\": \"8888888888\",\n    \"profile_id\": \"{{tenantProfileId}}\",\n    \"entity_id\": \"{{rootEntityId}}\",\n    \"attributes\": {\n        \"type\": \"tenant\",\n        \"industry\": \"Energy\",\n        \"location\": \"Mumbai\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create tenant entity under root entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Tenant Admin Role",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('tenantAdminRoleId', response.data.id);",
+											"        console.log('Tenant Admin Role ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Tenant Admin Role\",\n    \"entityId\": \"{{tenantEntityId}}\",\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleEntityId}}\",\n            \"name\": \"Entity\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleUserId}}\",\n            \"name\": \"User\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleRoleId}}\",\n            \"name\": \"Role\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleProfileId}}\",\n            \"name\": \"Profile\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": true\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create role for tenant admin with permissions to manage tenant hierarchy."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Tenant Admin User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('tenantAdminUserId', response.data.id);",
+											"        console.log('Tenant Admin User ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{rootToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"tenantadmin@kmp.com\",\n    \"password\": \"TenantAdmin@123\",\n    \"name\": \"Tenant Admin User\",\n    \"mobile_no\": \"9876543210\",\n    \"entity_id\": \"{{tenantEntityId}}\",\n    \"role_id\": \"{{tenantAdminRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								},
+								"description": "Create tenant admin user."
+							},
+							"response": []
+						},
+						{
+							"name": "Login as Tenant Admin",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.token) {",
+											"        pm.environment.set('tenantToken', response.data.token);",
+											"        pm.environment.set('tenantUserId', response.data.user.id);",
+											"        console.log('Tenant Admin token stored');",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"tenantadmin@kmp.com\",\n    \"password\": \"TenantAdmin@123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								},
+								"description": "Login as tenant admin to get tenant token."
+							},
+							"response": []
+						}
+					],
+					"description": "Create tenant entity, role, and user. Then login as tenant admin."
+				},
+				{
+					"name": "Step 8: Create Customer Entity & Admin",
+					"item": [
+						{
+							"name": "Create Customer Entity",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('customerEntityId', response.data.id);",
+											"        console.log('Customer Entity ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Ideal Energy\",\n    \"email_id\": \"admin@ideal.com\",\n    \"mobile_no\": \"7777777777\",\n    \"profile_id\": \"{{customerProfileId}}\",\n    \"entity_id\": \"{{tenantEntityId}}\",\n    \"attributes\": {\n        \"type\": \"customer\",\n        \"industry\": \"Manufacturing\",\n        \"location\": \"Delhi\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create customer entity under tenant. Use tenant admin token."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Customer Admin Role",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('customerAdminRoleId', response.data.id);",
+											"        console.log('Customer Admin Role ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Customer Admin Role\",\n    \"entityId\": \"{{customerEntityId}}\",\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleEntityId}}\",\n            \"name\": \"Entity\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleUserId}}\",\n            \"name\": \"User\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleRoleId}}\",\n            \"name\": \"Role\",\n            \"read\": true,\n            \"write\": true\n        },\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": true\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create role for customer admin."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Customer Admin User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('customerAdminUserId', response.data.id);",
+											"        console.log('Customer Admin User ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{tenantToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"customeradmin@ideal.com\",\n    \"password\": \"CustomerAdmin@123\",\n    \"name\": \"Customer Admin User\",\n    \"mobile_no\": \"9876543211\",\n    \"entity_id\": \"{{customerEntityId}}\",\n    \"role_id\": \"{{customerAdminRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								},
+								"description": "Create customer admin user."
+							},
+							"response": []
+						},
+						{
+							"name": "Login as Customer Admin",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.token) {",
+											"        pm.environment.set('customerToken', response.data.token);",
+											"        pm.environment.set('customerUserId', response.data.user.id);",
+											"        console.log('Customer Admin token stored');",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"customeradmin@ideal.com\",\n    \"password\": \"CustomerAdmin@123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								},
+								"description": "Login as customer admin to get customer token."
+							},
+							"response": []
+						}
+					],
+					"description": "Create customer entity, role, and user using tenant admin token. Then login as customer admin."
+				},
+				{
+					"name": "Step 9: Create Consumer Entity & User",
+					"item": [
+						{
+							"name": "Create Consumer Entity",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('consumerEntityId', response.data.id);",
+											"        console.log('Consumer Entity ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Patanjali Industries\",\n    \"email_id\": \"admin@patanjali.com\",\n    \"mobile_no\": \"6666666666\",\n    \"profile_id\": \"{{consumerProfileId}}\",\n    \"entity_id\": \"{{customerEntityId}}\",\n    \"attributes\": {\n        \"type\": \"consumer\",\n        \"industry\": \"FMCG\",\n        \"location\": \"Haridwar\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/entities",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"entities"
+									]
+								},
+								"description": "Create consumer entity under customer. Use customer admin token."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Consumer Role",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('consumerRoleId', response.data.id);",
+											"        console.log('Consumer Role ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Consumer User Role\",\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"permissions\": [\n        {\n            \"moduleId\": \"{{moduleMeterId}}\",\n            \"name\": \"Meter\",\n            \"read\": true,\n            \"write\": false\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/roles",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"roles"
+									]
+								},
+								"description": "Create role for consumer user with read-only meter access."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Consumer User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('consumerUserId', response.data.id);",
+											"        console.log('Consumer User ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"consumer@patanjali.com\",\n    \"password\": \"Consumer@123\",\n    \"name\": \"Consumer User\",\n    \"mobile_no\": \"9876543222\",\n    \"entity_id\": \"{{consumerEntityId}}\",\n    \"role_id\": \"{{consumerRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"users"
+									]
+								},
+								"description": "Create consumer user."
+							},
+							"response": []
+						},
+						{
+							"name": "Login as Consumer",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.token) {",
+											"        pm.environment.set('consumerToken', response.data.token);",
+											"        pm.environment.set('consumerUserId', response.data.user.id);",
+											"        console.log('Consumer token stored');",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"consumer@patanjali.com\",\n    \"password\": \"Consumer@123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								},
+								"description": "Login as consumer to get consumer token."
+							},
+							"response": []
+						}
+					],
+					"description": "Create consumer entity, role, and user using customer admin token. Then login as consumer."
+				},
+				{
+					"name": "Step 10: Create Meters",
+					"item": [
+						{
+							"name": "Create Meter (as Customer Admin)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('meterId', response.data.id);",
+											"        console.log('Meter ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"name\": \"Production Line A Meter\",\n    \"meterType\": \"PHYSICAL\",\n    \"attributes\": {\n        \"location\": \"Building 1, Production Floor\",\n        \"manufacturer\": \"Schneider Electric\",\n        \"model\": \"SE-001\",\n        \"installation_date\": \"2024-01-15\",\n        \"capacity\": \"100kW\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/meters",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters"
+									]
+								},
+								"description": "Create physical meter for consumer entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Virtual Meter",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('virtualMeterId', response.data.id);",
+											"        console.log('Virtual Meter ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"name\": \"Aggregated Consumption Meter\",\n    \"meterType\": \"VIRTUAL\",\n    \"attributes\": {\n        \"description\": \"Virtual meter aggregating multiple physical meters\",\n        \"source_meters\": []\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/meters",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters"
+									]
+								},
+								"description": "Create virtual meter for consumer entity."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Group Meter",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    const response = pm.response.json();",
+											"    if (response.data && response.data.id) {",
+											"        pm.environment.set('groupMeterId', response.data.id);",
+											"        console.log('Group Meter ID:', response.data.id);",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{customerToken}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"entityId\": \"{{consumerEntityId}}\",\n    \"name\": \"Building A Meter Group\",\n    \"meterType\": \"GROUP\",\n    \"attributes\": {\n        \"description\": \"Group of meters for Building A\",\n        \"member_meters\": []\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/meters",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters"
+									]
+								},
+								"description": "Create group meter for consumer entity."
+							},
+							"response": []
+						},
+						{
+							"name": "List Meters (as Consumer)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{consumerToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/meters/entity/{{consumerEntityId}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"meters",
+										"entity",
+										"{{consumerEntityId}}"
+									]
+								},
+								"description": "Consumer can view all meters in own entity."
+							},
+							"response": []
+						}
+					],
+					"description": "Create meters for consumer entity. Consumer can then view them."
+				}
+			],
+			"description": "**Complete Setup Flow: Root Admin → Tenant → Customer → Consumer**\n\nFollow these requests in order to set up the complete hierarchy:\n\n1. **Step 1**: Login as Root Admin (or Create if doesn't exist)\n2. **Step 2**: Create Global Profiles (Admin, Tenant, Customer, Consumer)\n3. **Step 3**: Create Modules (Entity, User, Role, Profile, Module, Meter)\n4. **Step 4**: Create Root Entity (ETL Admin entity)\n5. **Step 5**: Create Root Admin Role (with all permissions)\n6. **Step 6**: Create Root Admin User\n7. **Step 7**: Create Tenant Entity & Admin\n8. **Step 8**: Create Customer Entity & Admin\n9. **Step 9**: Create Consumer Entity & User\n10. **Step 10**: Create Meters\n\n**Important:** \n- After each step, IDs are automatically stored in environment variables\n- Use the appropriate token for each hierarchy level\n- Check environment variables if IDs are missing\n\n**Environment Variables Needed:**\n- base_url: http://localhost:3000\n- Tokens: rootToken, tenantToken, customerToken, consumerToken\n- IDs: All profile, module, entity, role, user, meter IDs"
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		}
+	]
+}

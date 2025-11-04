@@ -1,0 +1,132 @@
+import { createModuleRepository } from "../repositories/module.repository"
+import type { Module, CreateModuleDTO, UpdateModuleDTO } from "../types/entities"
+import { AppError } from "../middleware/errorHandler"
+import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
+import logger from "../utils/logger"
+import type { AuthContext } from "../types/common"
+import { Entity } from "../models/Entity"
+
+/**
+ * Check if user is root admin (entity has no parent)
+ */
+const isRootAdmin = async (userEntityId: string): Promise<boolean> => {
+  const entity = await Entity.findByPk(userEntityId)
+  if (!entity) return false
+  return entity.entity_id === null
+}
+
+export const createModuleService = () => {
+  const moduleRepository = createModuleRepository()
+
+  const getModuleById = async (id: string, user: AuthContext): Promise<Module> => {
+    // Modules are system-wide, only root admin can access
+    const isRoot = await isRootAdmin(user.entityId)
+    if (!isRoot) {
+      throw new AppError("Only root admin can access modules", HTTP_STATUS.FORBIDDEN)
+    }
+
+    const module = await moduleRepository.findById(id)
+    if (!module) {
+      throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+    }
+    return module
+  }
+
+  const createModule = async (data: CreateModuleDTO, user: AuthContext): Promise<Module> => {
+    try {
+      // Only root admin can create modules
+      const isRoot = await isRootAdmin(user.entityId)
+      if (!isRoot) {
+        throw new AppError("Only root admin can create modules", HTTP_STATUS.FORBIDDEN)
+      }
+
+      // Check if module with same name exists
+      const existing = await moduleRepository.findByName(data.name)
+      if (existing) {
+        throw new AppError("Module with this name already exists", HTTP_STATUS.CONFLICT)
+      }
+
+      return await moduleRepository.createModule(data, user.userId)
+    } catch (error) {
+      logger.error("Error creating module:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  const updateModule = async (
+    id: string,
+    data: UpdateModuleDTO,
+    user: AuthContext
+  ): Promise<Module> => {
+    try {
+      // Only root admin can update modules
+      const isRoot = await isRootAdmin(user.entityId)
+      if (!isRoot) {
+        throw new AppError("Only root admin can update modules", HTTP_STATUS.FORBIDDEN)
+      }
+
+      await getModuleById(id, user) // This validates access
+
+      // Check name uniqueness if name is being updated
+      if (data.name) {
+        const existing = await moduleRepository.findByName(data.name)
+        if (existing && existing.id !== id) {
+          throw new AppError("Module with this name already exists", HTTP_STATUS.CONFLICT)
+        }
+      }
+
+      const updated = await moduleRepository.updateModule(id, data)
+      if (!updated) {
+        throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+      }
+      return updated
+    } catch (error) {
+      logger.error("Error updating module:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  const deleteModule = async (id: string, user: AuthContext): Promise<void> => {
+    try {
+      // Only root admin can delete modules
+      const isRoot = await isRootAdmin(user.entityId)
+      if (!isRoot) {
+        throw new AppError("Only root admin can delete modules", HTTP_STATUS.FORBIDDEN)
+      }
+
+      await getModuleById(id, user) // This validates access
+      await moduleRepository.delete(id)
+    } catch (error) {
+      logger.error("Error deleting module:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  const listModules = async (user: AuthContext): Promise<Module[]> => {
+    try {
+      // Only root admin can list modules
+      const isRoot = await isRootAdmin(user.entityId)
+      if (!isRoot) {
+        throw new AppError("Only root admin can list modules", HTTP_STATUS.FORBIDDEN)
+      }
+
+      return await moduleRepository.findAll()
+    } catch (error) {
+      logger.error("Error listing modules:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  return {
+    getModuleById,
+    createModule,
+    updateModule,
+    deleteModule,
+    listModules,
+  }
+}
+
