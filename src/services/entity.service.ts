@@ -180,7 +180,7 @@ export const createEntityService = () => {
   const createEntity = async (data: CreateEntityDTO, user: AuthContext): Promise<Entity> => {
     try {
       // Use transaction to ensure atomicity of entity creation
-      return await withTransaction(async (transaction) => {
+      return await withTransaction(async () => {
         if (data.entity_id) {
           const parentEntity = await entityRepository.findById(data.entity_id);
           if (!parentEntity) {
@@ -293,6 +293,7 @@ export const createEntityService = () => {
       };
     } catch (error) {
       logger.error('Error listing entities:', error);
+      if (error instanceof AppError) throw error;
       throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
   };

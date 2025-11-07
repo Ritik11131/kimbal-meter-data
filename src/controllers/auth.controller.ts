@@ -10,7 +10,7 @@ export const login = async (req: Request, res: Response) => {
     const result = await authService.login(req.body)
     sendResponse(res, HTTP_STATUS.OK, result, "Login successful", req.path)
   } catch (error: any) {
-    sendError(res, error.statusCode || 500, error.message, req.path)
+    sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)
   }
 }
 
@@ -19,7 +19,7 @@ export const register = async (req: Request, res: Response) => {
     const result = await authService.register(req.body)
     sendResponse(res, HTTP_STATUS.CREATED, result, "User registered successfully", req.path)
   } catch (error: any) {
-    sendError(res, error.statusCode || 500, error.message, req.path)
+    sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)
   }
 }
 
@@ -33,6 +33,6 @@ export const verifyToken = async (req: Request, res: Response) => {
     const payload = authService.verifyToken(token)
     sendResponse(res, HTTP_STATUS.OK, payload, "Token valid", req.path)
   } catch (error: any) {
-    sendError(res, error.statusCode || 500, error.message, req.path)
+    sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)
   }
 }

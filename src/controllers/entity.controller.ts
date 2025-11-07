@@ -12,7 +12,7 @@ export const getById = async (req: Request, res: Response) => {
     const entity = await entityService.getEntityById(req.params.id, req.user!)
     sendResponse(res, HTTP_STATUS.OK, entity, "Entity retrieved", req.path)
   } catch (error: any) {
-    sendError(res, error.statusCode || 500, error.message, req.path)
+    sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)
   }
 }
 
@@ -66,7 +66,7 @@ export const create = async (req: Request, res: Response) => {
     const entity = await entityService.createEntity(req.body, req.user!)
     sendResponse(res, HTTP_STATUS.CREATED, entity, "Entity created successfully", req.path)
   } catch (error: any) {
-    sendError(res, error.statusCode || 500, error.message, req.path)
+    sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)
   }
 }
 
@@ -75,7 +75,7 @@ export const update = async (req: Request, res: Response) => {
     const entity = await entityService.updateEntity(req.params.id, req.body, req.user!)
     sendResponse(res, HTTP_STATUS.OK, entity, "Entity updated successfully", req.path)
   } catch (error: any) {
-    sendError(res, error.statusCode || 500, error.message, req.path)
+    sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)
   }
 }
 
@@ -84,7 +84,7 @@ export const remove = async (req: Request, res: Response) => {
     await entityService.deleteEntity(req.params.id, req.user!)
     sendResponse(res, HTTP_STATUS.OK, null, "Entity deleted successfully", req.path)
   } catch (error: any) {
-    sendError(res, error.statusCode || 500, error.message, req.path)
+    sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)
   }
 }
 
