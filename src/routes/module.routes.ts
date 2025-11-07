@@ -4,6 +4,7 @@ import { authenticate } from "../middleware/authentication"
 import { authorize, authorizeRead } from "../middleware/authorization"
 import { validate } from "../utils/validation"
 import { createModuleSchema, updateModuleSchema } from "../validators/module.validator"
+import { validateUUIDParams } from "../utils/uuidValidation"
 import { MODULES } from "../config/constants"
 
 const router = Router()
@@ -14,7 +15,7 @@ router.get("/", authenticate, authorizeRead([MODULES.MODULE]), (req, res, next) 
 })
 
 // Get module by ID (root admin only - enforced in service)
-router.get("/:id", authenticate, authorizeRead([MODULES.MODULE]), (req, res, next) => {
+router.get("/:id", authenticate, authorizeRead([MODULES.MODULE]), validateUUIDParams(["id"]), (req, res, next) => {
   moduleController.getById(req, res).catch(next)
 })
 
@@ -24,12 +25,12 @@ router.post("/", authenticate, authorize([MODULES.MODULE]), validate(createModul
 })
 
 // Update module (root admin only - enforced in service)
-router.patch("/:id", authenticate, authorize([MODULES.MODULE]), validate(updateModuleSchema), (req, res, next) => {
+router.patch("/:id", authenticate, authorize([MODULES.MODULE]), validateUUIDParams(["id"]), validate(updateModuleSchema), (req, res, next) => {
   moduleController.update(req, res).catch(next)
 })
 
 // Delete module (root admin only - enforced in service)
-router.delete("/:id", authenticate, authorize([MODULES.MODULE]), (req, res, next) => {
+router.delete("/:id", authenticate, authorize([MODULES.MODULE]), validateUUIDParams(["id"]), (req, res, next) => {
   moduleController.remove(req, res).catch(next)
 })
 

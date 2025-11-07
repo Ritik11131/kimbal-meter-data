@@ -6,6 +6,7 @@ import type { AuthContext } from '../types/common';
 import { createEntityRepository } from '../repositories/entity.repository';
 import { validateEntityAccess, getAccessibleEntityIds } from '../utils/hierarchy';
 import { Entity as EntityModel } from '../models/Entity';
+import { withTransaction } from '../utils/transactions';
 
 // Recursive type for entity tree structure
 type EntityTree = Entity & { children: EntityTree[] };
@@ -28,7 +29,7 @@ export const createEntityService = () => {
       throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
     // Validate user has access to this entity
-    await validateEntityAccess(user.entityId, id);
+    await validateEntityAccess(user.entityId, id, "entity");
     return entity;
   };
 
@@ -178,15 +179,18 @@ export const createEntityService = () => {
 
   const createEntity = async (data: CreateEntityDTO, user: AuthContext): Promise<Entity> => {
     try {
-      if (data.entity_id) {
-        const parentEntity = await entityRepository.findById(data.entity_id);
-        if (!parentEntity) {
-          throw new AppError('Parent entity not found', HTTP_STATUS.NOT_FOUND);
+      // Use transaction to ensure atomicity of entity creation
+      return await withTransaction(async (transaction) => {
+        if (data.entity_id) {
+          const parentEntity = await entityRepository.findById(data.entity_id);
+          if (!parentEntity) {
+            throw new AppError('Parent entity not found', HTTP_STATUS.NOT_FOUND);
+          }
+          // Validate user can access the parent entity
+          await validateEntityAccess(user.entityId, data.entity_id, "entities");
         }
-        // Validate user can access the parent entity
-        await validateEntityAccess(user.entityId, data.entity_id);
-      }
-      return await entityRepository.createEntity(data, user.userId);
+        return await entityRepository.createEntity(data, user.userId);
+      });
     } catch (error) {
       logger.error('Error creating entity:', error);
       if (error instanceof AppError) throw error;
@@ -218,6 +222,16 @@ export const createEntityService = () => {
     try {
       // Validate access before deleting
       await getEntityById(id, user);
+      
+      // Check if entity has children before deletion
+      const children = await entityRepository.findDirectChildren(id, 1, 1);
+      if (children.total > 0) {
+        throw new AppError(
+          'Cannot delete entity: Entity has child entities. Please delete or reassign child entities first.',
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+      
       await entityRepository.delete(id);
     } catch (error) {
       logger.error('Error deleting entity:', error);
@@ -232,7 +246,7 @@ export const createEntityService = () => {
       if (entityId !== null && entityId !== undefined) {
         // Validate user has access to the parent entity
         if (user) {
-          await validateEntityAccess(user.entityId, entityId);
+          await validateEntityAccess(user.entityId, entityId, "entities");
         }
         logger.debug(`listEntities: Listing child entities of entity: ${entityId}`);
         const { data, total } = await entityRepository.paginateEntities(page, limit, profileId, undefined, entityId);

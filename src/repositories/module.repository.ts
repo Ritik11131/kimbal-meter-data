@@ -40,6 +40,13 @@ export const createModuleRepository = () => {
     })
   }
 
+  const paginateModules = async (
+    page = 1,
+    limit = 10
+  ): Promise<{ data: ModuleType[]; total: number }> => {
+    return baseRepo.paginate(page, limit, {})
+  }
+
   return {
     ...baseRepo,
     findById,
@@ -47,6 +54,7 @@ export const createModuleRepository = () => {
     createModule,
     updateModule,
     findAll,
+    paginateModules,
   }
 }
 

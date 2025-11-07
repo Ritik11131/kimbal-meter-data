@@ -99,6 +99,57 @@ export const createRoleRepository = () => {
     })) as RoleType[]
   }
 
+  const findAll = async (): Promise<RoleType[]> => {
+    const roles = await Role.findAll({
+      order: [["creation_time", "DESC"]],
+    })
+    return roles.map(roleInstance => ({
+      ...roleInstance.get(),
+      attributes:
+        typeof roleInstance.attributes === "object" && roleInstance.attributes !== null
+          ? (roleInstance.attributes as RoleType["attributes"])
+          : { roles: [] },
+    })) as RoleType[]
+  }
+
+  const paginateRoles = async (
+    page = 1,
+    limit = 10,
+    entityId?: string | null,
+    accessibleEntityIds?: string[]
+  ): Promise<{ data: RoleType[]; total: number }> => {
+    const where: any = {}
+    
+    if (entityId !== null && entityId !== undefined) {
+      // Specific entity ID requested
+      where.entity_id = entityId === null ? null : entityId
+    } else if (accessibleEntityIds !== undefined) {
+      // Filter by accessible entities (non-root users)
+      if (accessibleEntityIds.length > 0) {
+        where.entity_id = {
+          [Op.in]: accessibleEntityIds
+        }
+      } else {
+        // Empty array means no accessible entities - return empty result
+        where.id = { [Op.in]: [] }
+      }
+    }
+    // If accessibleEntityIds is undefined, it means root admin - no filter (show all)
+    
+    const { data, total } = await baseRepo.paginate(page, limit, where)
+    
+    // Map Sequelize instances to typed Role objects
+    const mappedData = data.map(roleInstance => ({
+      ...(roleInstance as any).get ? (roleInstance as any).get() : roleInstance,
+      attributes:
+        typeof (roleInstance as any).attributes === "object" && (roleInstance as any).attributes !== null
+          ? ((roleInstance as any).attributes as RoleType["attributes"])
+          : { roles: [] },
+    })) as RoleType[]
+    
+    return { data: mappedData, total }
+  }
+
   return {
     ...baseRepo,
     findByEntityId,
@@ -106,5 +157,7 @@ export const createRoleRepository = () => {
     createRole,
     updateRole,
     findByAccessibleEntities,
+    findAll,
+    paginateRoles,
   }
 }

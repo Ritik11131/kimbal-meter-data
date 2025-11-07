@@ -1,4 +1,5 @@
 import { createModuleRepository } from "../repositories/module.repository"
+import { createRoleRepository } from "../repositories/role.repository"
 import type { Module, CreateModuleDTO, UpdateModuleDTO } from "../types/entities"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
@@ -17,6 +18,7 @@ const isRootAdmin = async (userEntityId: string): Promise<boolean> => {
 
 export const createModuleService = () => {
   const moduleRepository = createModuleRepository()
+  const roleRepository = createRoleRepository()
 
   const getModuleById = async (id: string, user: AuthContext): Promise<Module> => {
     // Modules are system-wide, only root admin can access
@@ -97,6 +99,21 @@ export const createModuleService = () => {
       }
 
       await getModuleById(id, user) // This validates access
+      
+      // Check if module is referenced in any role permissions
+      const allRoles = await roleRepository.findAll()
+      const rolesUsingModule = allRoles.filter(role => {
+        const permissions = (role.attributes as any)?.roles || []
+        return permissions.some((perm: any) => perm.moduleId === id)
+      })
+      
+      if (rolesUsingModule.length > 0) {
+        throw new AppError(
+          `Cannot delete module: Module is referenced in ${rolesUsingModule.length} role(s). Please remove module references from roles first.`,
+          HTTP_STATUS.BAD_REQUEST
+        )
+      }
+      
       await moduleRepository.delete(id)
     } catch (error) {
       logger.error("Error deleting module:", error)
@@ -105,7 +122,11 @@ export const createModuleService = () => {
     }
   }
 
-  const listModules = async (user: AuthContext): Promise<Module[]> => {
+  const listModules = async (
+    user: AuthContext,
+    page = 1,
+    limit = 10
+  ): Promise<{ data: Module[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
       // Only root admin can list modules
       const isRoot = await isRootAdmin(user.entityId)
@@ -113,7 +134,14 @@ export const createModuleService = () => {
         throw new AppError("Only root admin can list modules", HTTP_STATUS.FORBIDDEN)
       }
 
-      return await moduleRepository.findAll()
+      const { data, total } = await moduleRepository.paginateModules(page, limit)
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
     } catch (error) {
       logger.error("Error listing modules:", error)
       if (error instanceof AppError) throw error

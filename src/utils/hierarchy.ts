@@ -228,15 +228,32 @@ export const getRootEntityId = async (entityId: string): Promise<string | null> 
 /**
  * Validate that a target entity is accessible from user's entity hierarchy
  * Throws an error if access is denied
+ * 
+ * @param userEntityId - The entity ID of the current user
+ * @param targetEntityId - The entity ID being accessed
+ * @param resourceType - Optional: Type of resource being accessed (e.g., "profiles", "roles", "users", "meters", "entities")
  */
-export const validateEntityAccess = async (userEntityId: string, targetEntityId: string): Promise<void> => {
+export const validateEntityAccess = async (
+  userEntityId: string, 
+  targetEntityId: string,
+  resourceType?: string
+): Promise<void> => {
   logger.info(`validateEntityAccess: Validating access - User: ${userEntityId}, Target: ${targetEntityId}`)
   const hasAccess = await canAccessEntity(userEntityId, targetEntityId)
   if (!hasAccess) {
     logger.error(`validateEntityAccess: ACCESS DENIED - User: ${userEntityId}, Target: ${targetEntityId}`)
-    const error = new Error("You cannot access entities outside your hierarchy")
-    ;(error as any).statusCode = 403
-    throw error
+    const { AppError } = await import("../middleware/errorHandler")
+    const { HTTP_STATUS } = await import("../config/constants")
+    
+    // Create more specific error message based on resource type
+    let errorMessage: string
+    if (resourceType) {
+      errorMessage = `You cannot access ${resourceType} from entity ${targetEntityId} as it is outside your hierarchy`
+    } else {
+      errorMessage = `You cannot access entity ${targetEntityId} as it is outside your hierarchy`
+    }
+    
+    throw new AppError(errorMessage, HTTP_STATUS.FORBIDDEN)
   }
   logger.info(`validateEntityAccess: Access granted - User: ${userEntityId}, Target: ${targetEntityId}`)
 }

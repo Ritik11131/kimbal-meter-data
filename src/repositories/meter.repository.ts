@@ -14,6 +14,14 @@ export const createMeterRepository = () => {
     })
   }
 
+  const paginateByEntityId = async (
+    entityId: string,
+    page = 1,
+    limit = 10
+  ): Promise<{ data: MeterType[]; total: number }> => {
+    return baseRepo.paginate(page, limit, { entity_id: entityId })
+  }
+
   const findByMeterType = async (meterType: string): Promise<MeterType[]> => {
     return Meter.findAll({
       where: { meter_type: meterType },
@@ -68,12 +76,39 @@ export const createMeterRepository = () => {
     })
   }
 
+  const paginateByAccessibleEntities = async (
+    accessibleEntityIds: string[],
+    page = 1,
+    limit = 10
+  ): Promise<{ data: MeterType[]; total: number }> => {
+    const where: any = {}
+    
+    if (accessibleEntityIds.length > 0) {
+      where.entity_id = {
+        [Op.in]: accessibleEntityIds
+      }
+    } else {
+      // Empty array means no accessible entities - return empty result
+      where.id = { [Op.in]: [] }
+    }
+    
+    return baseRepo.paginate(page, limit, where)
+  }
+
+  const deleteMeter = async (id: string): Promise<number> => {
+    const deleted = await Meter.destroy({ where: { id } })
+    return deleted
+  }
+
   return {
     ...baseRepo,
     findByEntityId,
+    paginateByEntityId,
     findByMeterType,
     createMeter,
     updateMeter,
     findByAccessibleEntities,
+    paginateByAccessibleEntities,
+    deleteMeter,
   }
 }

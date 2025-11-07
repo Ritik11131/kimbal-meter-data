@@ -83,6 +83,33 @@ export const createProfileRepository = () => {
     }
   }
 
+  const paginateProfiles = async (
+    page = 1,
+    limit = 10,
+    entityId?: string | null,
+    accessibleEntityIds?: string[]
+  ): Promise<{ data: ProfileType[]; total: number }> => {
+    const where: any = {}
+    
+    if (entityId !== null && entityId !== undefined) {
+      // Specific entity ID requested
+      where.entity_id = entityId === null ? null : entityId
+    } else if (accessibleEntityIds !== undefined) {
+      // Filter by accessible entities (non-root users)
+      if (accessibleEntityIds.length > 0) {
+        where.entity_id = {
+          [Op.in]: accessibleEntityIds
+        }
+      } else {
+        // Empty array means no accessible entities - return empty result
+        where.id = { [Op.in]: [] }
+      }
+    }
+    // If accessibleEntityIds is undefined, it means root admin - no filter (show all)
+    
+    return baseRepo.paginate(page, limit, where)
+  }
+
   return {
     ...baseRepo,
     findByEntityId,
@@ -92,6 +119,7 @@ export const createProfileRepository = () => {
     findByAccessibleEntities,
     findAllGlobal,
     findAll, // Override base findAll with explicit implementation
+    paginateProfiles,
   }
 }
 

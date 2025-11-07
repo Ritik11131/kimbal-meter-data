@@ -2,9 +2,10 @@ import { Router } from "express"
 import * as profileController from "../controllers/profile.controller"
 import { authenticate } from "../middleware/authentication"
 import { authorize, authorizeRead } from "../middleware/authorization"
-import { enforceEntityAccessQuery } from "../middleware/hierarchy"
+import { enforceEntityAccessQuery, enforceResourceEntityAccess } from "../middleware/hierarchy"
 import { validate } from "../utils/validation"
 import { createProfileSchema, updateProfileSchema } from "../validators/profile.validator"
+import { validateUUIDParams } from "../utils/uuidValidation"
 import { MODULES } from "../config/constants"
 
 const router = Router()
@@ -15,7 +16,7 @@ router.get("/", authenticate, authorizeRead([MODULES.PROFILE]), (req, res, next)
 })
 
 // Get profile by ID
-router.get("/:id", authenticate, authorizeRead([MODULES.PROFILE]), (req, res, next) => {
+router.get("/:id", authenticate, authorizeRead([MODULES.PROFILE]), validateUUIDParams(["id"]), enforceResourceEntityAccess("profile"), (req, res, next) => {
   profileController.getById(req, res).catch(next)
 })
 
@@ -25,12 +26,12 @@ router.post("/", authenticate, authorize([MODULES.PROFILE]), enforceEntityAccess
 })
 
 // Update profile
-router.patch("/:id", authenticate, authorize([MODULES.PROFILE]), validate(updateProfileSchema), (req, res, next) => {
+router.patch("/:id", authenticate, authorize([MODULES.PROFILE]), validateUUIDParams(["id"]), enforceResourceEntityAccess("profile"), validate(updateProfileSchema), (req, res, next) => {
   profileController.update(req, res).catch(next)
 })
 
 // Delete profile
-router.delete("/:id", authenticate, authorize([MODULES.PROFILE]), (req, res, next) => {
+router.delete("/:id", authenticate, authorize([MODULES.PROFILE]), validateUUIDParams(["id"]), enforceResourceEntityAccess("profile"), (req, res, next) => {
   profileController.remove(req, res).catch(next)
 })
 

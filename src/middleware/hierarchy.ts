@@ -23,7 +23,7 @@ export const enforceEntityAccess = (entityIdParam: string = "id") => {
       }
 
       const user = req.user as AuthContext
-      await validateEntityAccess(user.entityId, targetEntityId)
+      await validateEntityAccess(user.entityId, targetEntityId, "entities")
 
       next()
     } catch (error) {
@@ -54,7 +54,12 @@ export const enforceEntityAccessQuery = (paramName: string = "entityId") => {
       }
 
       const user = req.user as AuthContext
-      await validateEntityAccess(user.entityId, targetEntityId)
+      // Determine resource type from param name for better error messages
+      let resourceType = "entities"
+      if (paramName.includes("entityId") || paramName.includes("entity_id")) {
+        resourceType = "entities"
+      }
+      await validateEntityAccess(user.entityId, targetEntityId, resourceType)
 
       next()
     } catch (error) {
@@ -85,7 +90,7 @@ export const validateParentEntityAccess = () => {
       }
 
       const user = req.user as AuthContext
-      await validateEntityAccess(user.entityId, parentEntityId)
+      await validateEntityAccess(user.entityId, parentEntityId, "entities")
 
       next()
     } catch (error) {
@@ -94,6 +99,103 @@ export const validateParentEntityAccess = () => {
       }
       throw new AppError(
         error instanceof Error ? error.message : "Cannot create entity under inaccessible parent",
+        HTTP_STATUS.FORBIDDEN
+      )
+    }
+  }
+}
+
+/**
+ * Middleware to enforce entity access for resources where the ID is not the entity ID
+ * Fetches the resource, extracts its entity_id, and validates access
+ * 
+ * @param resourceType - Type of resource ("user", "role", "profile", "meter")
+ * @param idParam - Name of the param containing resource ID (default: "id")
+ */
+export const enforceResourceEntityAccess = (resourceType: "user" | "role" | "profile" | "meter", idParam: string = "id") => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        throw new AppError(ERROR_MESSAGES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED)
+      }
+
+      const resourceId = req.params[idParam]
+      if (!resourceId) {
+        return next() // No ID to validate, continue
+      }
+
+      const user = req.user as AuthContext
+      let targetEntityId: string | null | undefined
+
+      // Fetch resource and extract entity_id based on resource type
+      switch (resourceType) {
+        case "user": {
+          const { createUserRepository } = await import("../repositories/user.repository")
+          const userRepo = createUserRepository()
+          const resource = await userRepo.findById(resourceId)
+          if (!resource) {
+            throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+          }
+          targetEntityId = resource.entity_id
+          break
+        }
+        case "role": {
+          const { createRoleRepository } = await import("../repositories/role.repository")
+          const roleRepo = createRoleRepository()
+          const resource = await roleRepo.findById(resourceId)
+          if (!resource) {
+            throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+          }
+          // Global roles (entity_id = null) are accessible to all
+          if (resource.entity_id === null) {
+            return next()
+          }
+          targetEntityId = resource.entity_id
+          break
+        }
+        case "profile": {
+          const { createProfileRepository } = await import("../repositories/profile.repository")
+          const profileRepo = createProfileRepository()
+          const resource = await profileRepo.findById(resourceId)
+          if (!resource) {
+            throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+          }
+          // Global profiles (entity_id = null) - only root admin can access
+          if (resource.entity_id === null) {
+            const { Entity } = await import("../models/Entity")
+            const entity = await Entity.findByPk(user.entityId)
+            if (!entity || entity.entity_id !== null) {
+              throw new AppError("Only root admin can access global profiles", HTTP_STATUS.FORBIDDEN)
+            }
+            return next()
+          }
+          targetEntityId = resource.entity_id
+          break
+        }
+        case "meter": {
+          const { createMeterRepository } = await import("../repositories/meter.repository")
+          const meterRepo = createMeterRepository()
+          const resource = await meterRepo.findById(resourceId)
+          if (!resource) {
+            throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+          }
+          targetEntityId = resource.entity_id
+          break
+        }
+      }
+
+      // Validate entity access
+      if (targetEntityId) {
+        await validateEntityAccess(user.entityId, targetEntityId, resourceType)
+      }
+
+      next()
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error
+      }
+      throw new AppError(
+        error instanceof Error ? error.message : "Access denied to resource outside your hierarchy",
         HTTP_STATUS.FORBIDDEN
       )
     }

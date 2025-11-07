@@ -33,6 +33,21 @@ export const createUserRepository = () => {
     return users.map(user => user.get() as UserType)
   }
 
+  const paginateByEntityId = async (
+    entityId: string,
+    page = 1,
+    limit = 10
+  ): Promise<{ data: UserType[]; total: number }> => {
+    const { data, total } = await baseRepo.paginate(page, limit, {
+      entity_id: entityId,
+      is_deleted: false,
+    })
+    return {
+      data: data.map(user => user.get() as UserType),
+      total,
+    }
+  }
+
   const create = async (
     data: CreateUserDTO,
     passwordHash: string,
@@ -102,17 +117,44 @@ export const createUserRepository = () => {
     return users.map(user => user.get() as UserType)
   }
 
+  const paginateByAccessibleEntities = async (
+    accessibleEntityIds: string[],
+    page = 1,
+    limit = 10
+  ): Promise<{ data: UserType[]; total: number }> => {
+    const where: any = {
+      is_deleted: false,
+    }
+    
+    if (accessibleEntityIds.length > 0) {
+      where.entity_id = {
+        [Op.in]: accessibleEntityIds
+      }
+    } else {
+      // Empty array means no accessible entities - return empty result
+      where.id = { [Op.in]: [] }
+    }
+    
+    const { data, total } = await baseRepo.paginate(page, limit, where)
+    return {
+      data: data.map(user => user.get() as UserType),
+      total,
+    }
+  }
+
   return {
     ...baseRepo,
     findById,
     findByEmail,
     findByMobileNo,
     findByEntityId,
+    paginateByEntityId,
     create,
     update,
     softDelete,
     findByRoleId,
     changePassword,
     findByAccessibleEntities,
+    paginateByAccessibleEntities,
   }
 }
