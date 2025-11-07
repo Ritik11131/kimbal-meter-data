@@ -5,20 +5,11 @@ import logger from '../utils/logger';
 import type { AuthContext } from '../types/common';
 import { createEntityRepository } from '../repositories/entity.repository';
 import { validateEntityAccess, getAccessibleEntityIds } from '../utils/hierarchy';
-import { Entity as EntityModel } from '../models/Entity';
 import { withTransaction } from '../utils/transactions';
+import { isRootAdmin } from '../utils/rootAdmin';
 
 // Recursive type for entity tree structure
 type EntityTree = Entity & { children: EntityTree[] };
-
-/**
- * Check if user is root admin (entity has no parent)
- */
-const isRootAdmin = async (userEntityId: string): Promise<boolean> => {
-  const entity = await EntityModel.findByPk(userEntityId);
-  if (!entity) return false;
-  return entity.entity_id === null;
-};
 
 export const createEntityService = () => {
   const entityRepository = createEntityRepository();

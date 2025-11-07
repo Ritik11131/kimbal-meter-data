@@ -6,16 +6,7 @@ import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
 import type { AuthContext } from "../types/common"
 import { validateEntityAccess, getAccessibleEntityIds } from "../utils/hierarchy"
-import { Entity } from "../models/Entity"
-
-/**
- * Check if user is root admin (entity has no parent)
- */
-const isRootAdmin = async (userEntityId: string): Promise<boolean> => {
-  const entity = await Entity.findByPk(userEntityId)
-  if (!entity) return false
-  return entity.entity_id === null
-}
+import { isRootAdmin } from "../utils/rootAdmin"
 
 export const createProfileService = () => {
   const profileRepository = createProfileRepository()
