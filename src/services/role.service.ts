@@ -90,9 +90,9 @@ export const createRoleService = () => {
     try {
       let accessibleEntityIds: string[] | undefined
 
-      // Validate access if listing entity-scoped roles
+      // If entityId is provided, list roles for that entity
+      // Note: Access validation is handled by enforceEntityAccessQuery middleware
       if (entityId) {
-        await validateEntityAccess(user.entityId, entityId, "roles")
         const { data, total } = await roleRepository.paginateRoles(page, limit, entityId)
         return {
           data,

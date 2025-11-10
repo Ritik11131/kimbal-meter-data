@@ -40,3 +40,20 @@ export const ERROR_MESSAGES = {
   DATABASE_ERROR: "Database operation failed",
   PERMISSION_DENIED: "You do not have permission to perform this action",
 } as const
+
+/**
+ * Mapping of path segments to resource types for error messages
+ * Used in hierarchy middleware to generate proper error messages
+ */
+export const RESOURCE_TYPE_MAP: Record<string, string> = {
+  users: "Users",
+  user: "Users",
+  meters: "Meters",
+  meter: "Meters",
+  profiles: "Profiles",
+  profile: "Profiles",
+  roles: "Roles",
+  role: "Roles",
+  entities: "Entities",
+  entity: "Entities",
+} as const

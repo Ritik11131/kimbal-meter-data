@@ -100,9 +100,9 @@ export const createUserService = () => {
     limit = 10
   ): Promise<{ data: UserWithoutPassword[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
-      // If entityId is provided, validate access and list users for that entity
+      // If entityId is provided, list users for that entity
+      // Note: Access validation is handled by enforceEntityAccessQuery middleware
       if (entityId) {
-        await validateEntityAccess(currentUser.entityId, entityId, "users")
         const { data, total } = await userRepository.paginateByEntityId(entityId, page, limit)
         return {
           data: data.map((u) => excludePassword(u)),

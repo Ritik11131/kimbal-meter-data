@@ -11,7 +11,7 @@ import { MODULES } from "../config/constants"
 const router = Router()
 
 // List users (supports ?entityId=xxx query param) - must come before /:id route
-router.get("/", authenticate, authorizeRead([MODULES.USER]), (req, res, next) => userController.list(req, res).catch(next))
+router.get("/", authenticate, authorizeRead([MODULES.USER]), enforceEntityAccessQuery("entityId"), (req, res, next) => userController.list(req, res).catch(next))
 // Get user by ID - must come after list route
 router.get("/:id", authenticate, authorizeRead([MODULES.USER]), validateUUIDParams(["id"]), enforceResourceEntityAccess("user"), (req, res, next) => userController.getById(req, res).catch(next))
 

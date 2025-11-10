@@ -142,9 +142,9 @@ export const createProfileService = () => {
             totalPages: Math.ceil(total / limit),
           }
         } else {
-          // Entity-scoped profiles - validate access
+          // Entity-scoped profiles - list profiles for that entity
+          // Note: Access validation is handled by enforceEntityAccessQuery middleware
           logger.debug(`listProfiles: Returning profiles for entity: ${entityId}`)
-          await validateEntityAccess(user.entityId, entityId, "profiles")
           const { data, total } = await profileRepository.paginateProfiles(page, limit, entityId)
           return {
             data,

@@ -65,9 +65,9 @@ export const createMeterService = () => {
     limit = 10
   ): Promise<{ data: Meter[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
-      // If entityId is provided, validate access and list meters for that entity
+      // If entityId is provided, list meters for that entity
+      // Note: Access validation is handled by enforceEntityAccessQuery middleware
       if (entityId) {
-        await validateEntityAccess(user.entityId, entityId, "meters")
         const { data, total } = await meterRepository.paginateByEntityId(entityId, page, limit)
         return {
           data,

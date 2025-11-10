@@ -234,11 +234,8 @@ export const createEntityService = () => {
   const listEntities = async (page = 1, limit = 10, profileId?: string, entityId?: string | null, user?: AuthContext) => {
     try {
       // Handle entityId filter - list child entities of a specific entity
+      // Note: Access validation is handled by enforceEntityAccessQuery middleware
       if (entityId !== null && entityId !== undefined) {
-        // Validate user has access to the parent entity
-        if (user) {
-          await validateEntityAccess(user.entityId, entityId, "entities");
-        }
         logger.debug(`listEntities: Listing child entities of entity: ${entityId}`);
         const { data, total } = await entityRepository.paginateEntities(page, limit, profileId, undefined, entityId);
         return {
