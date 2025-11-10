@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { createRoleService } from "../services/role.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
+import { AppError } from "../middleware/errorHandler"
 import { isValidUUID } from "../utils/uuidValidation"
 
 const roleService = createRoleService()
@@ -50,10 +51,10 @@ export const listByEntity = async (req: Request, res: Response) => {
     
     // Validate page and limit
     if (page < 1 || !Number.isInteger(page)) {
-      throw new Error('page parameter must be a positive integer')
+      throw new AppError('page parameter must be a positive integer', HTTP_STATUS.BAD_REQUEST)
     }
     if (limit < 1 || limit > 100 || !Number.isInteger(limit)) {
-      throw new Error('limit parameter must be between 1 and 100')
+      throw new AppError('limit parameter must be between 1 and 100', HTTP_STATUS.BAD_REQUEST)
     }
     
 
@@ -64,7 +65,7 @@ export const listByEntity = async (req: Request, res: Response) => {
     if (entityId === "null" || entityId === "" || entityId === undefined) {
       entityId = null
     } else if (entityId && !isValidUUID(entityId)) {
-      throw new Error('entityId parameter must be a valid UUID')
+      throw new AppError('entityId parameter must be a valid UUID', HTTP_STATUS.BAD_REQUEST)
     }
     
     const result = await roleService.listRolesByEntity(entityId, req.user!, page, limit)

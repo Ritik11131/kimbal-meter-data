@@ -27,7 +27,8 @@ export const verifyToken = async (req: Request, res: Response) => {
   try {
     const token = req.headers.authorization?.replace("Bearer ", "")
     if (!token) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, "No token provided", req.path)
+      sendError(res, HTTP_STATUS.UNAUTHORIZED, "No token provided", req.path)
+      return
     }
 
     const payload = authService.verifyToken(token)
