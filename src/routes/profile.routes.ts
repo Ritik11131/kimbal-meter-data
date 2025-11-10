@@ -11,7 +11,7 @@ import { MODULES } from "../config/constants"
 const router = Router()
 
 // List profiles (supports ?entityId=xxx query param)
-router.get("/", authenticate, authorizeRead([MODULES.PROFILE]), enforceEntityAccessQuery("entityId"), (req, res, next) => {
+router.get("/", authenticate, authorizeRead([MODULES.PROFILE]), (req, res, next) => {
   profileController.list(req, res).catch(next)
 })
 
