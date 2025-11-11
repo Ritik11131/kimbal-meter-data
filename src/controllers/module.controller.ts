@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { createModuleService } from "../services/module.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
+import { extractPaginationParams } from "../utils/queryExtraction"
 
 const moduleService = createModuleService()
 
@@ -44,8 +45,7 @@ export const remove = async (req: Request, res: Response) => {
 export const list = async (req: Request, res: Response) => {
   try {
     // Query parameters are validated by validateQuery middleware
-    const page = typeof req.query.page === 'number' ? req.query.page : 1
-    const limit = typeof req.query.limit === 'number' ? req.query.limit : 10
+    const { page, limit } = extractPaginationParams(req)
     
     const result = await moduleService.listModules(req.user!, page, limit)
     sendResponse(res, HTTP_STATUS.OK, result, "Modules listed", req.path)

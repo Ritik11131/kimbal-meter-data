@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { createRoleService } from "../services/role.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
+import { extractListQueryParams } from "../utils/queryExtraction"
 
 const roleService = createRoleService()
 
@@ -44,11 +45,9 @@ export const remove = async (req: Request, res: Response) => {
 export const listByEntity = async (req: Request, res: Response) => {
   try {
     // Query parameters are validated by validateQuery middleware
-    const page = typeof req.query.page === 'number' ? req.query.page : 1
-    const limit = typeof req.query.limit === 'number' ? req.query.limit : 10
-    const entityId = (typeof req.query.entityId === 'string' || req.query.entityId === null) ? req.query.entityId : null
+    const { page, limit, entityId } = extractListQueryParams(req)
     
-    const result = await roleService.listRolesByEntity(entityId, req.user!, page, limit)
+    const result = await roleService.listRolesByEntity(entityId ?? null, req.user!, page, limit)
     sendResponse(res, HTTP_STATUS.OK, result, "Roles listed", req.path)
   } catch (error: any) {
     sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)

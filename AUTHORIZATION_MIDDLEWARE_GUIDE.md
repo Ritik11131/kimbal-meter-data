@@ -24,9 +24,9 @@ The authorization middleware:
 
 ## 🔧 Functions
 
-### 1. `authorize(modules: string[])`
+### 1. `requireWritePermission(modules: string[])`
 
-**Purpose:** Middleware for **write operations** (POST, PATCH, DELETE)
+**Purpose:** Middleware to require **WRITE permission** for a module. Used for write operations (POST, PATCH, DELETE).
 
 **What it checks:**
 - User must be authenticated (`req.user` exists)
@@ -48,7 +48,7 @@ const hasPermission = modules.some((module) => {
 
 **Example:**
 ```typescript
-router.post("/", authenticate, authorize([MODULES.ENTITY]), ...)
+router.post("/", authenticate, requireWritePermission([MODULES.ENTITY]), ...)
 // ✅ User needs WRITE permission for "Entity" module
 ```
 
@@ -58,9 +58,9 @@ router.post("/", authenticate, authorize([MODULES.ENTITY]), ...)
 
 ---
 
-### 2. `authorizeRead(modules: string[])`
+### 2. `requireReadPermission(modules: string[])`
 
-**Purpose:** Middleware for **read operations** (GET)
+**Purpose:** Middleware to require **READ permission** for a module. Allows users with either read OR write permission. Used for read operations (GET).
 
 **What it checks:**
 - User must be authenticated (`req.user` exists)
@@ -82,7 +82,7 @@ const hasPermission = modules.some((module) => {
 
 **Example:**
 ```typescript
-router.get("/", authenticate, authorizeRead([MODULES.USER]), ...)
+router.get("/", authenticate, requireReadPermission([MODULES.USER]), ...)
 // ✅ User needs READ or WRITE permission for "User" module
 ```
 
@@ -132,7 +132,7 @@ MODULES = {
    - Extracts user info and permissions
    - Attaches to req.user
    ↓
-3. authorize() or authorizeRead() middleware runs
+3. requireWritePermission() or requireReadPermission() middleware runs
    - Checks if req.user exists
    - Looks up permissions for specified modules
    - Validates read/write access
@@ -155,10 +155,10 @@ MODULES = {
 **Route:**
 ```typescript
 router.post("/", 
-  authenticate,                    // ✅ Step 1: Verify JWT token
-  authorize([MODULES.ENTITY]),     // ✅ Step 2: Check write permission for "Entity"
-  validate(createEntitySchema),    // ✅ Step 3: Validate request body
-  entityController.create          // ✅ Step 4: Execute controller
+  authenticate,                              // ✅ Step 1: Verify JWT token
+  requireWritePermission([MODULES.ENTITY]),  // ✅ Step 2: Check write permission for "Entity"
+  validate(createEntitySchema),              // ✅ Step 3: Validate request body
+  entityController.create                    // ✅ Step 4: Execute controller
 )
 ```
 
@@ -185,9 +185,9 @@ router.post("/",
 **Route:**
 ```typescript
 router.get("/", 
-  authenticate,                    // ✅ Step 1: Verify JWT token
-  authorizeRead([MODULES.USER]),   // ✅ Step 2: Check read permission for "User"
-  userController.list              // ✅ Step 3: Execute controller
+  authenticate,                            // ✅ Step 1: Verify JWT token
+  requireReadPermission([MODULES.USER]),    // ✅ Step 2: Check read permission for "User"
+  userController.list                       // ✅ Step 3: Execute controller
 )
 ```
 
@@ -214,9 +214,9 @@ router.get("/",
 **Route:**
 ```typescript
 router.delete("/:id", 
-  authenticate,                    // ✅ Step 1: Verify JWT token
-  authorize([MODULES.ROLE]),       // ❌ Step 2: Check write permission for "Role"
-  roleController.remove            // ❌ Step 3: Never reached
+  authenticate,                              // ✅ Step 1: Verify JWT token
+  requireWritePermission([MODULES.ROLE]),     // ❌ Step 2: Check write permission for "Role"
+  roleController.remove                       // ❌ Step 3: Never reached
 )
 ```
 
@@ -245,7 +245,7 @@ You can specify multiple modules. The user needs permission for **at least one**
 ```typescript
 router.get("/", 
   authenticate,
-  authorizeRead([MODULES.ENTITY, MODULES.USER]),  // ✅ Needs permission for Entity OR User
+  requireReadPermission([MODULES.ENTITY, MODULES.USER]),  // ✅ Needs permission for Entity OR User
   ...
 )
 ```
@@ -262,18 +262,18 @@ The authorization middleware works in sequence with other middleware:
 
 ```typescript
 router.post("/api/entities",
-  authenticate,                    // 1. Verify JWT token
-  authorize([MODULES.ENTITY]),     // 2. Check write permission
-  validateParentEntityAccess(),    // 3. Validate entity hierarchy access
-  validate(createEntitySchema),    // 4. Validate request body
-  entityController.create          // 5. Execute business logic
+  authenticate,                              // 1. Verify JWT token
+  requireWritePermission([MODULES.ENTITY]),  // 2. Check write permission
+  validateParentEntityAccess(),              // 3. Validate entity hierarchy access
+  validate(createEntitySchema),              // 4. Validate request body
+  entityController.create                    // 5. Execute business logic
 )
 ```
 
 ### Middleware Order Matters!
 
 1. **`authenticate`** - Must run first (sets `req.user`)
-2. **`authorize`/`authorizeRead`** - Runs after authentication
+2. **`requireWritePermission`/`requireReadPermission`** - Runs after authentication
 3. **`validateParentEntityAccess`** - Runs after authorization (hierarchy check)
 4. **`validate`** - Validates request body/params
 5. **Controller** - Executes business logic
@@ -310,14 +310,14 @@ router.post("/api/entities",
 // List entities (read)
 router.get("/", 
   authenticate, 
-  authorizeRead([MODULES.ENTITY]), 
+  requireReadPermission([MODULES.ENTITY]), 
   entityController.list
 )
 
 // Get entity by ID (read)
 router.get("/:id", 
   authenticate, 
-  authorizeRead([MODULES.ENTITY]), 
+  requireReadPermission([MODULES.ENTITY]), 
   validateUUIDParams(["id"]),
   enforceEntityAccess(),
   entityController.getById
@@ -326,7 +326,7 @@ router.get("/:id",
 // Create entity (write)
 router.post("/", 
   authenticate, 
-  authorize([MODULES.ENTITY]),  // ✅ Requires WRITE
+  requireWritePermission([MODULES.ENTITY]),  // ✅ Requires WRITE
   validateParentEntityAccess(),
   validate(createEntitySchema),
   entityController.create
@@ -335,7 +335,7 @@ router.post("/",
 // Update entity (write)
 router.patch("/:id", 
   authenticate, 
-  authorize([MODULES.ENTITY]),  // ✅ Requires WRITE
+  requireWritePermission([MODULES.ENTITY]),  // ✅ Requires WRITE
   validateUUIDParams(["id"]),
   enforceEntityAccess(),
   validate(updateEntitySchema),
@@ -345,7 +345,7 @@ router.patch("/:id",
 // Delete entity (write)
 router.delete("/:id", 
   authenticate, 
-  authorize([MODULES.ENTITY]),  // ✅ Requires WRITE
+  requireWritePermission([MODULES.ENTITY]),  // ✅ Requires WRITE
   validateUUIDParams(["id"]),
   enforceEntityAccess(),
   entityController.remove
@@ -358,14 +358,14 @@ router.delete("/:id",
 // List users (read)
 router.get("/", 
   authenticate, 
-  authorizeRead([MODULES.USER]), 
+  requireReadPermission([MODULES.USER]), 
   userController.list
 )
 
 // Create user (write)
 router.post("/", 
   authenticate, 
-  authorize([MODULES.USER]),  // ✅ Requires WRITE
+  requireWritePermission([MODULES.USER]),  // ✅ Requires WRITE
   enforceEntityAccessQuery("entity_id"),
   validate(createUserSchema),
   userController.create
@@ -378,14 +378,14 @@ router.post("/",
 // List roles (read)
 router.get("/", 
   authenticate, 
-  authorizeRead([MODULES.ROLE]), 
+  requireReadPermission([MODULES.ROLE]), 
   roleController.listByEntity
 )
 
 // Create role (write)
 router.post("/", 
   authenticate, 
-  authorize([MODULES.ROLE]),  // ✅ Requires WRITE
+  requireWritePermission([MODULES.ROLE]),  // ✅ Requires WRITE
   enforceEntityAccessQuery("entityId"),
   validate(createRoleSchema),
   roleController.create
@@ -394,10 +394,10 @@ router.post("/",
 
 ---
 
-## 🔍 Key Differences: `authorize` vs `authorizeRead`
+## 🔍 Key Differences: `requireWritePermission` vs `requireReadPermission`
 
-| Feature | `authorize()` | `authorizeRead()` |
-|---------|---------------|-------------------|
+| Feature | `requireWritePermission()` | `requireReadPermission()` |
+|---------|---------------------------|---------------------------|
 | **Used for** | Write operations (POST, PATCH, DELETE) | Read operations (GET) |
 | **Requires** | `write: true` | `read: true` OR `write: true` |
 | **Stricter** | ✅ Yes (write only) | ❌ No (read or write) |
@@ -408,8 +408,8 @@ router.post("/",
 ## 💡 Best Practices
 
 1. **Always use `authenticate` first** - Authorization requires authentication
-2. **Use `authorizeRead` for GET requests** - Allows read-only users
-3. **Use `authorize` for write operations** - Stricter check for modifications
+2. **Use `requireReadPermission` for GET requests** - Allows read-only users
+3. **Use `requireWritePermission` for write operations** - Stricter check for modifications
 4. **Specify correct modules** - Match the resource being accessed
 5. **Combine with hierarchy middleware** - Authorization checks permissions, hierarchy checks entity access
 
@@ -419,8 +419,17 @@ router.post("/",
 
 | Function | Purpose | Permission Required | Used For |
 |----------|---------|---------------------|----------|
-| `authorize(modules)` | Write operations | `write: true` | POST, PATCH, DELETE |
-| `authorizeRead(modules)` | Read operations | `read: true` OR `write: true` | GET |
+| `requireWritePermission(modules)` | Write operations | `write: true` | POST, PATCH, DELETE |
+| `requireReadPermission(modules)` | Read operations | `read: true` OR `write: true` | GET |
+
+---
+
+## ⚠️ Deprecated Functions
+
+The following functions are deprecated but kept for backward compatibility:
+
+- `authorize(modules)` → Use `requireWritePermission(modules)` instead
+- `authorizeRead(modules)` → Use `requireReadPermission(modules)` instead
 
 **The authorization middleware is a critical security layer that ensures users can only perform actions they have permission for, based on their role's module permissions.**
 

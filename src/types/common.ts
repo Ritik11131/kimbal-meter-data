@@ -68,3 +68,38 @@ export interface PermissionSet {
   read: boolean
   write: boolean
 }
+
+/**
+ * Options for extracting query parameters
+ */
+export interface QueryExtractionOptions {
+  /** Default page value if not provided (default: 1) */
+  defaultPage?: number
+  /** Default limit value if not provided (default: 10) */
+  defaultLimit?: number
+  /** Whether to include entityId in extraction (default: false) */
+  includeEntityId?: boolean
+  /** Additional custom fields to extract */
+  customFields?: string[]
+}
+
+/**
+ * Result of query parameter extraction
+ */
+export interface ExtractedQueryParams {
+  page?: number
+  limit?: number
+  entityId?: string | null
+  [key: string]: any // For custom fields
+}
+
+/**
+ * Express Request extension for authentication
+ * This module augmentation adds user and token properties to Express Request
+ */
+declare module 'express' {
+  interface Request {
+    user?: AuthContext
+    token?: string
+  }
+}

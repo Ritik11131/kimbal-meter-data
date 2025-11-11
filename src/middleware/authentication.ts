@@ -2,14 +2,7 @@ import type { Request, Response, NextFunction } from "express"
 import { JwtUtil } from "../utils/jwt"
 import { AppError } from "./errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
-import type { AuthContext } from "../types/common"
-
-declare module 'express' {
-  interface Request {
-    user?: AuthContext
-    token?: string
-  }
-}
+// Express Request extension is defined in src/types/common.ts
 
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   try {

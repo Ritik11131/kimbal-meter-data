@@ -3,6 +3,7 @@ import { createEntityService } from "../services/entity.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
 import { AppError } from "../middleware/errorHandler"
+import { extractQueryParams } from "../utils/queryExtraction"
 
 const entityService = createEntityService()
 
@@ -18,10 +19,16 @@ export const getById = async (req: Request, res: Response) => {
 export const getHierarchy = async (req: Request, res: Response) => {
   try {
     // Query parameters are validated by validateQuery middleware
-    const depth = typeof req.query.depth === 'number' ? req.query.depth : undefined
-    const page = typeof req.query.page === 'number' ? req.query.page : undefined
-    const limit = typeof req.query.limit === 'number' ? req.query.limit : undefined
-    const paginateRootChildren = typeof req.query.paginateRootChildren === 'boolean' ? req.query.paginateRootChildren : undefined
+    const extracted = extractQueryParams(req, {
+      defaultPage: undefined,
+      defaultLimit: undefined,
+      customFields: ['depth', 'paginateRootChildren'],
+    })
+    
+    const depth = extracted.depth as number | undefined
+    const page = extracted.page as number | undefined
+    const limit = extracted.limit as number | undefined
+    const paginateRootChildren = extracted.paginateRootChildren as boolean | undefined
     
     // Validate pagination parameters when paginateRootChildren is true
     if (paginateRootChildren) {
@@ -77,10 +84,10 @@ export const remove = async (req: Request, res: Response) => {
 export const list = async (req: Request, res: Response) => {
   try {
     // Query parameters are validated by validateQuery middleware
-    const page = typeof req.query.page === 'number' ? req.query.page : 1
-    const limit = typeof req.query.limit === 'number' ? req.query.limit : 10
-    const profileId = typeof req.query.profileId === 'string' ? req.query.profileId : undefined
-    const entityId = (typeof req.query.entityId === 'string' || req.query.entityId === null) ? req.query.entityId : undefined
+    const { page, limit, entityId, profileId } = extractQueryParams(req, {
+      includeEntityId: true,
+      customFields: ['profileId'],
+    })
 
     const result = await entityService.listEntities(page, limit, profileId, entityId, req.user!)
     sendResponse(res, HTTP_STATUS.OK, result, "Entities listed successfully", req.path)

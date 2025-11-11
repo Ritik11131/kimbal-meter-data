@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { createMeterService } from "../services/meter.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
+import { extractListQueryParams } from "../utils/queryExtraction"
 
 const meterService = createMeterService()
 
@@ -37,9 +38,7 @@ export const update = async (req: Request, res: Response) => {
 export const list = async (req: Request, res: Response) => {
   try {
     // Query parameters are validated by validateQuery middleware
-    const page = typeof req.query.page === 'number' ? req.query.page : 1
-    const limit = typeof req.query.limit === 'number' ? req.query.limit : 10
-    const entityId = (typeof req.query.entityId === 'string' || req.query.entityId === null) ? req.query.entityId : undefined
+    const { page, limit, entityId } = extractListQueryParams(req)
     
     const result = await meterService.listMeters(entityId, req.user!, page, limit)
     sendResponse(res, HTTP_STATUS.OK, result, "Meters listed successfully", req.path)

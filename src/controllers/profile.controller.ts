@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { createProfileService } from "../services/profile.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
+import { extractListQueryParams } from "../utils/queryExtraction"
 
 const profileService = createProfileService()
 
@@ -44,9 +45,7 @@ export const remove = async (req: Request, res: Response) => {
 export const list = async (req: Request, res: Response) => {
   try {
     // Query parameters are validated by validateQuery middleware
-    const page = typeof req.query.page === 'number' ? req.query.page : 1
-    const limit = typeof req.query.limit === 'number' ? req.query.limit : 10
-    const entityId = (typeof req.query.entityId === 'string' || req.query.entityId === null) ? req.query.entityId : undefined
+    const { page, limit, entityId } = extractListQueryParams(req)
     
     const result = await profileService.listProfiles(entityId, req.user!, page, limit)
     sendResponse(res, HTTP_STATUS.OK, result, "Profiles listed", req.path)
