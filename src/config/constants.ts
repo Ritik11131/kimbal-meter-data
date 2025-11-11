@@ -41,10 +41,6 @@ export const ERROR_MESSAGES = {
   PERMISSION_DENIED: "You do not have permission to perform this action",
 } as const
 
-/**
- * Mapping of path segments to resource types for error messages
- * Used in hierarchy middleware to generate proper error messages
- */
 export const RESOURCE_TYPE_MAP: Record<string, string> = {
   users: "Users",
   user: "Users",
