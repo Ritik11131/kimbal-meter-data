@@ -145,7 +145,7 @@ export const createMeterService = () => {
   const deleteMeter = async (id: string, user: AuthContext): Promise<void> => {
     try {
       await getMeterById(id, user)
-      const deleted = await meterRepository.deleteMeter(id)
+      const deleted = await meterRepository.delete(id)
       if (deleted === 0) {
         throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
       }

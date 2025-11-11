@@ -156,7 +156,7 @@ export const createEntityRepository = () => {
    * @param profileId - Optional profile filter
    * @param accessibleEntityIds - Optional hierarchy filter
    * @param parentEntityId - Optional parent entity filter
-   * @returns Paginated entity data
+   * @returns Paginated entity data with plain objects
    */
   const paginateEntities = async (page = 1, limit = 10, profileId?: string, accessibleEntityIds?: string[], parentEntityId?: string | null) => {
     const where: any = {}
@@ -181,16 +181,16 @@ export const createEntityRepository = () => {
       }
     }
 
-    const { count, rows } = await Entity.findAndCountAll({
-      where,
-      offset: (page - 1) * limit,
-      limit,
-      order: [["creation_time", "DESC"]],
+    const { data, total } = await baseRepo.paginate(page, limit, where)
+    
+    const plainData = data.map((row: any) => {
+      if (row && typeof row.get === 'function') {
+        return row.get() as Entity
+      }
+      return row as Entity
     })
 
-    const plainData = rows.map(row => row.get() as Entity)
-
-    return { data: plainData, total: count }
+    return { data: plainData, total }
   }
 
   /**

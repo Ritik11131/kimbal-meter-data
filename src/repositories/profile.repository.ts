@@ -3,11 +3,15 @@ import { Profile } from "../models/Profile"
 import type { Profile as ProfileType, CreateProfileDTO, UpdateProfileDTO } from "../types/entities"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
-import logger from "../utils/logger"
 
 export const createProfileRepository = () => {
   const baseRepo = createBaseRepository(Profile)
 
+  /**
+   * Finds all profiles by entity ID
+   * @param entityId - Entity ID (null for global profiles)
+   * @returns Array of profiles
+   */
   const findByEntityId = async (entityId?: string | null): Promise<ProfileType[]> => {
     const whereClause = entityId === null ? { entity_id: null } : entityId ? { entity_id: entityId } : {}
 
@@ -17,10 +21,12 @@ export const createProfileRepository = () => {
     })
   }
 
-  const findById = async (id: string): Promise<ProfileType | null> => {
-    return Profile.findByPk(id)
-  }
-
+  /**
+   * Creates a new profile
+   * @param data - Profile creation data
+   * @param createdBy - User ID of creator
+   * @returns Created profile
+   */
   const createProfile = async (
     data: CreateProfileDTO,
     createdBy?: string
@@ -33,6 +39,12 @@ export const createProfileRepository = () => {
     })
   }
 
+  /**
+   * Updates an existing profile
+   * @param id - Profile ID
+   * @param data - Profile update data
+   * @returns Updated profile or null if not found
+   */
   const updateProfile = async (id: string, data: UpdateProfileDTO): Promise<ProfileType | null> => {
     const profile = await Profile.findByPk(id)
     if (!profile) return null
@@ -45,6 +57,11 @@ export const createProfileRepository = () => {
     return profile
   }
 
+  /**
+   * Finds profiles accessible by a user's entity
+   * @param userEntityId - User's entity ID
+   * @returns Array of accessible profiles
+   */
   const findByAccessibleEntities = async (userEntityId: string): Promise<ProfileType[]> => {
     const accessibleIds = await getAccessibleEntityIds(userEntityId)
     return Profile.findAll({
@@ -57,6 +74,10 @@ export const createProfileRepository = () => {
     })
   }
 
+  /**
+   * Finds all global profiles (entity_id = null)
+   * @returns Array of global profiles
+   */
   const findAllGlobal = async (): Promise<ProfileType[]> => {
     return Profile.findAll({
       where: { entity_id: null },
@@ -65,21 +86,13 @@ export const createProfileRepository = () => {
   }
 
   /**
-   * Finds all profiles
-   * @returns Array of all profiles
+   * Paginates profiles with optional filters
+   * @param page - Page number
+   * @param limit - Items per page
+   * @param entityId - Optional entity ID filter
+   * @param accessibleEntityIds - Optional hierarchy filter
+   * @returns Paginated profile data
    */
-  const findAll = async (): Promise<ProfileType[]> => {
-    try {
-      const profiles = await Profile.findAll({
-        order: [["creation_time", "DESC"]],
-      })
-      return profiles
-    } catch (error: any) {
-      logger.error("Error finding all profiles:", error)
-      throw error
-    }
-  }
-
   const paginateProfiles = async (
     page = 1,
     limit = 10,
@@ -89,20 +102,16 @@ export const createProfileRepository = () => {
     const where: any = {}
     
     if (entityId !== null && entityId !== undefined) {
-      // Specific entity ID requested
       where.entity_id = entityId === null ? null : entityId
     } else if (accessibleEntityIds !== undefined) {
-      // Filter by accessible entities (non-root users)
       if (accessibleEntityIds.length > 0) {
         where.entity_id = {
           [Op.in]: accessibleEntityIds
         }
       } else {
-        // Empty array means no accessible entities - return empty result
         where.id = { [Op.in]: [] }
       }
     }
-    // If accessibleEntityIds is undefined, it means root admin - no filter (show all)
     
     return baseRepo.paginate(page, limit, where)
   }
@@ -110,12 +119,10 @@ export const createProfileRepository = () => {
   return {
     ...baseRepo,
     findByEntityId,
-    findById,
     createProfile,
     updateProfile,
     findByAccessibleEntities,
     findAllGlobal,
-    findAll, // Override base findAll with explicit implementation
     paginateProfiles,
   }
 }

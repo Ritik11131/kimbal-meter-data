@@ -88,16 +88,10 @@ export const createMeterRepository = () => {
         [Op.in]: accessibleEntityIds
       }
     } else {
-      // Empty array means no accessible entities - return empty result
       where.id = { [Op.in]: [] }
     }
     
     return baseRepo.paginate(page, limit, where)
-  }
-
-  const deleteMeter = async (id: string): Promise<number> => {
-    const deleted = await Meter.destroy({ where: { id } })
-    return deleted
   }
 
   return {
@@ -109,6 +103,5 @@ export const createMeterRepository = () => {
     updateMeter,
     findByAccessibleEntities,
     paginateByAccessibleEntities,
-    deleteMeter,
   }
 }
