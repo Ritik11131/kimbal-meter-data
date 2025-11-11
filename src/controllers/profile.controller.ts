@@ -6,6 +6,11 @@ import { extractListQueryParams } from "../utils/queryExtraction"
 
 const profileService = createProfileService()
 
+/**
+ * Retrieves a profile by ID
+ * @param req - Express request object containing profile ID in params
+ * @param res - Express response object
+ */
 export const getById = async (req: Request, res: Response) => {
   try {
     const profile = await profileService.getProfileById(req.params.id, req.user!)
@@ -15,6 +20,11 @@ export const getById = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Creates a new profile
+ * @param req - Express request object containing profile data in body
+ * @param res - Express response object
+ */
 export const create = async (req: Request, res: Response) => {
   try {
     const profile = await profileService.createProfile(req.body, req.user!)
@@ -24,6 +34,11 @@ export const create = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Updates an existing profile
+ * @param req - Express request object containing profile ID in params and update data in body
+ * @param res - Express response object
+ */
 export const update = async (req: Request, res: Response) => {
   try {
     const profile = await profileService.updateProfile(req.params.id, req.body, req.user!)
@@ -33,6 +48,11 @@ export const update = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Deletes a profile
+ * @param req - Express request object containing profile ID in params
+ * @param res - Express response object
+ */
 export const remove = async (req: Request, res: Response) => {
   try {
     await profileService.deleteProfile(req.params.id, req.user!)
@@ -42,9 +62,13 @@ export const remove = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Lists profiles with pagination and optional entity filter
+ * @param req - Express request object containing query parameters (page, limit, entityId)
+ * @param res - Express response object
+ */
 export const list = async (req: Request, res: Response) => {
   try {
-    // Query parameters are validated by validateQuery middleware
     const { page, limit, entityId } = extractListQueryParams(req)
     
     const result = await profileService.listProfiles(entityId, req.user!, page, limit)

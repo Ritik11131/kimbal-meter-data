@@ -6,6 +6,11 @@ import { extractListQueryParams } from "../utils/queryExtraction"
 
 const roleService = createRoleService()
 
+/**
+ * Retrieves a role by ID
+ * @param req - Express request object containing role ID in params
+ * @param res - Express response object
+ */
 export const getById = async (req: Request, res: Response) => {
   try {
     const role = await roleService.getRoleById(req.params.id, req.user!)
@@ -15,6 +20,11 @@ export const getById = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Creates a new role
+ * @param req - Express request object containing role data (name, permissions, entityId) in body
+ * @param res - Express response object
+ */
 export const create = async (req: Request, res: Response) => {
   try {
     const role = await roleService.createRole(req.body.name, req.body.permissions, req.body.entityId, req.user!)
@@ -24,6 +34,11 @@ export const create = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Updates an existing role
+ * @param req - Express request object containing role ID in params and update data (name, permissions) in body
+ * @param res - Express response object
+ */
 export const update = async (req: Request, res: Response) => {
   try {
     const role = await roleService.updateRole(req.params.id, req.user!, req.body.name, req.body.permissions)
@@ -33,6 +48,11 @@ export const update = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Deletes a role
+ * @param req - Express request object containing role ID in params
+ * @param res - Express response object
+ */
 export const remove = async (req: Request, res: Response) => {
   try {
     await roleService.deleteRole(req.params.id, req.user!)
@@ -42,9 +62,13 @@ export const remove = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Lists roles with pagination and optional entity filter
+ * @param req - Express request object containing query parameters (page, limit, entityId)
+ * @param res - Express response object
+ */
 export const listByEntity = async (req: Request, res: Response) => {
   try {
-    // Query parameters are validated by validateQuery middleware
     const { page, limit, entityId } = extractListQueryParams(req)
     
     const result = await roleService.listRolesByEntity(entityId ?? null, req.user!, page, limit)

@@ -11,9 +11,7 @@ import { MODULES } from "../config/constants"
 
 const router = Router()
 
-// List meters (supports ?entityId=xxx query param) - must come before /:id route
 router.get("/", authenticate, requireReadPermission([MODULES.METER]), validateQuery(meterListQuerySchema), enforceEntityAccessQuery("entityId"), (req, res, next) => meterController.list(req, res).catch(next))
-// Get meter by ID - must come after list route
 router.get("/:id", authenticate, requireReadPermission([MODULES.METER]), validateUUIDParams(["id"]), enforceResourceEntityAccess("meter"), (req, res, next) => meterController.getById(req, res).catch(next))
 
 router.post("/", authenticate, requireWritePermission([MODULES.METER]), enforceEntityAccessQuery("entityId"), validate(createMeterSchema), (req, res, next) => {

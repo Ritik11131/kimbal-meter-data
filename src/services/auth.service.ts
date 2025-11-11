@@ -11,6 +11,11 @@ export const createAuthService = () => {
   const userRepository = createUserRepository()
   const roleRepository = createRoleRepository()
 
+  /**
+   * Registers a new user
+   * @param data - User registration data
+   * @returns Authentication response with user and token
+   */
   const register = async (data: CreateUserDTO): Promise<AuthResponse> => {
     try {
       const existingUser = await userRepository.findByEmail(data.email)
@@ -50,6 +55,11 @@ export const createAuthService = () => {
     }
   }
 
+  /**
+   * Authenticates a user and returns JWT token
+   * @param data - Login credentials (email and password)
+   * @returns Authentication response with user and token
+   */
   const login = async (data: LoginDTO): Promise<AuthResponse> => {
     try {
       const user = await userRepository.findByEmail(data.email)
@@ -97,6 +107,12 @@ export const createAuthService = () => {
     }
   }
 
+  /**
+   * Verifies and decodes a JWT token
+   * @param token - JWT token string
+   * @returns Decoded token payload
+   * @throws AppError if token is invalid or expired
+   */
   const verifyToken = (token: string) => {
     try {
       return JwtUtil.verify(token)

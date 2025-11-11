@@ -7,6 +7,11 @@ import { extractQueryParams } from "../utils/queryExtraction"
 
 const entityService = createEntityService()
 
+/**
+ * Retrieves an entity by ID
+ * @param req - Express request object containing entity ID in params
+ * @param res - Express response object
+ */
 export const getById = async (req: Request, res: Response) => {
   try {
     const entity = await entityService.getEntityById(req.params.id, req.user!)
@@ -16,9 +21,13 @@ export const getById = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Retrieves entity hierarchy tree with optional pagination
+ * @param req - Express request object containing entity ID and query parameters (depth, page, limit, paginateRootChildren)
+ * @param res - Express response object
+ */
 export const getHierarchy = async (req: Request, res: Response) => {
   try {
-    // Query parameters are validated by validateQuery middleware
     const extracted = extractQueryParams(req, {
       defaultPage: undefined,
       defaultLimit: undefined,
@@ -30,7 +39,6 @@ export const getHierarchy = async (req: Request, res: Response) => {
     const limit = extracted.limit as number | undefined
     const paginateRootChildren = extracted.paginateRootChildren as boolean | undefined
     
-    // Validate pagination parameters when paginateRootChildren is true
     if (paginateRootChildren) {
       if (!page || page < 1) {
         throw new AppError('page parameter is required when paginateRootChildren is true', HTTP_STATUS.BAD_REQUEST)
@@ -54,6 +62,11 @@ export const getHierarchy = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Creates a new entity
+ * @param req - Express request object containing entity data in body
+ * @param res - Express response object
+ */
 export const create = async (req: Request, res: Response) => {
   try {
     const entity = await entityService.createEntity(req.body, req.user!)
@@ -63,6 +76,11 @@ export const create = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Updates an existing entity
+ * @param req - Express request object containing entity ID in params and update data in body
+ * @param res - Express response object
+ */
 export const update = async (req: Request, res: Response) => {
   try {
     const entity = await entityService.updateEntity(req.params.id, req.body, req.user!)
@@ -72,6 +90,11 @@ export const update = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Deletes an entity
+ * @param req - Express request object containing entity ID in params
+ * @param res - Express response object
+ */
 export const remove = async (req: Request, res: Response) => {
   try {
     await entityService.deleteEntity(req.params.id, req.user!)
@@ -81,9 +104,13 @@ export const remove = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Lists entities with pagination and optional filters
+ * @param req - Express request object containing query parameters (page, limit, entityId, profileId)
+ * @param res - Express response object
+ */
 export const list = async (req: Request, res: Response) => {
   try {
-    // Query parameters are validated by validateQuery middleware
     const { page, limit, entityId, profileId } = extractQueryParams(req, {
       includeEntityId: true,
       customFields: ['profileId'],

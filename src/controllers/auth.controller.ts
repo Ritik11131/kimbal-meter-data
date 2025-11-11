@@ -5,6 +5,11 @@ import { HTTP_STATUS } from "../config/constants"
 
 const authService = createAuthService()
 
+/**
+ * Authenticates a user and returns a JWT token
+ * @param req - Express request object containing email and password in body
+ * @param res - Express response object
+ */
 export const login = async (req: Request, res: Response) => {
   try {
     const result = await authService.login(req.body)
@@ -14,6 +19,11 @@ export const login = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Registers a new user
+ * @param req - Express request object containing user registration data in body
+ * @param res - Express response object
+ */
 export const register = async (req: Request, res: Response) => {
   try {
     const result = await authService.register(req.body)
@@ -23,6 +33,11 @@ export const register = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Verifies a JWT token and returns the decoded payload
+ * @param req - Express request object containing token in Authorization header
+ * @param res - Express response object
+ */
 export const verifyToken = async (req: Request, res: Response) => {
   try {
     const token = req.headers.authorization?.replace("Bearer ", "")

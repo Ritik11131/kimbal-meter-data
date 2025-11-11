@@ -6,6 +6,11 @@ import { extractPaginationParams } from "../utils/queryExtraction"
 
 const moduleService = createModuleService()
 
+/**
+ * Retrieves a module by ID
+ * @param req - Express request object containing module ID in params
+ * @param res - Express response object
+ */
 export const getById = async (req: Request, res: Response) => {
   try {
     const module = await moduleService.getModuleById(req.params.id, req.user!)
@@ -15,6 +20,11 @@ export const getById = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Creates a new module (root admin only)
+ * @param req - Express request object containing module data in body
+ * @param res - Express response object
+ */
 export const create = async (req: Request, res: Response) => {
   try {
     const module = await moduleService.createModule(req.body, req.user!)
@@ -24,6 +34,11 @@ export const create = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Updates an existing module (root admin only)
+ * @param req - Express request object containing module ID in params and update data in body
+ * @param res - Express response object
+ */
 export const update = async (req: Request, res: Response) => {
   try {
     const module = await moduleService.updateModule(req.params.id, req.body, req.user!)
@@ -33,6 +48,11 @@ export const update = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Deletes a module (root admin only)
+ * @param req - Express request object containing module ID in params
+ * @param res - Express response object
+ */
 export const remove = async (req: Request, res: Response) => {
   try {
     await moduleService.deleteModule(req.params.id, req.user!)
@@ -42,9 +62,13 @@ export const remove = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Lists modules with pagination (root admin only)
+ * @param req - Express request object containing query parameters (page, limit)
+ * @param res - Express response object
+ */
 export const list = async (req: Request, res: Response) => {
   try {
-    // Query parameters are validated by validateQuery middleware
     const { page, limit } = extractPaginationParams(req)
     
     const result = await moduleService.listModules(req.user!, page, limit)

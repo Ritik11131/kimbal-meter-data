@@ -64,21 +64,18 @@ export const createProfileRepository = () => {
     })
   }
 
+  /**
+   * Finds all profiles
+   * @returns Array of all profiles
+   */
   const findAll = async (): Promise<ProfileType[]> => {
     try {
-      logger.debug("findAll: Fetching all profiles from database")
       const profiles = await Profile.findAll({
         order: [["creation_time", "DESC"]],
       })
-      logger.debug(`findAll: Found ${profiles.length} profiles`)
       return profiles
     } catch (error: any) {
       logger.error("Error finding all profiles:", error)
-      logger.error("Error details:", {
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name
-      })
       throw error
     }
   }

@@ -1,5 +1,5 @@
 import { createBaseRepository } from "./base.repository"
-import { Entity } from "../models/Entity" // Your Sequelize entity model class
+import { Entity } from "../models/Entity"
 import type { CreateEntityDTO, UpdateEntityDTO } from "../types/entities"
 import { getSequelize } from "../database/connection"
 import logger from "../utils/logger"
@@ -9,12 +9,22 @@ import { Op } from "sequelize"
 export const createEntityRepository = () => {
   const baseRepo = createBaseRepository(Entity)
 
+  /**
+   * Finds an entity by email
+   * @param email - Email address
+   * @returns Entity or null if not found
+   */
   const findByEmail = async (email: string) => {
     const entityInstance = await Entity.findOne({ where: { email_id: email } })
     if (!entityInstance) return null
     return entityInstance.get() as Entity
   }
 
+  /**
+   * Finds all entities with a specific profile ID
+   * @param profileId - Profile ID
+   * @returns Array of entities
+   */
   const findByProfileId = async (profileId: string) => {
     const entities = await Entity.findAll({
       where: { profile_id: profileId },
@@ -23,11 +33,16 @@ export const createEntityRepository = () => {
     return entities.map(entity => entity.get() as Entity)
   }
 
+  /**
+   * Finds entity hierarchy using recursive CTE query
+   * @param entityId - Root entity ID
+   * @param maxDepth - Optional maximum depth
+   * @returns Array of entities in hierarchy
+   */
   const findHierarchy = async (entityId: string, maxDepth?: number) => {
     try {
       const sequelize = getSequelize()
       
-      // If maxDepth is specified, limit recursion depth
       let depthCondition = ''
       if (maxDepth !== undefined && maxDepth > 0) {
         depthCondition = 'AND depth < :maxDepth'
@@ -43,33 +58,25 @@ export const createEntityRepository = () => {
         )
         SELECT * FROM entity_tree ORDER BY depth, creation_time;
       `
-      // Raw SQL query returns plain objects (not Sequelize instances)
       const [results] = await sequelize.query(query, {
         replacements: { 
           entityId,
-          maxDepth: maxDepth ?? 999 // Default to deep recursion if not specified
+          maxDepth: maxDepth ?? 999
         },
       }) as [any[], any]
-      
-      logger.debug(`findHierarchy: Found ${results?.length || 0} entities in hierarchy for ${entityId} (maxDepth: ${maxDepth ?? 'unlimited'})`)
       
       if (!Array.isArray(results)) {
         logger.error(`findHierarchy: Query result is not an array: ${typeof results}`)
         return []
       }
       
-      // Raw SQL already returns plain objects, but ensure they're properly formatted
-      // Convert to plain objects if they have Sequelize instance properties
       return results.map((row: any) => {
-        // If it's already a plain object (from raw SQL), return as-is
         if (row && !row.dataValues && typeof row.get !== 'function') {
           return row as Entity
         }
-        // If it somehow is a Sequelize instance, convert it
         if (row && typeof row.get === 'function') {
           return row.get() as Entity
         }
-        // If it has dataValues, extract it
         if (row && row.dataValues) {
           return row.dataValues as Entity
         }
@@ -82,7 +89,11 @@ export const createEntityRepository = () => {
   }
 
   /**
-   * Get direct children of an entity with pagination (optimized for large datasets)
+   * Gets direct children of an entity with pagination
+   * @param entityId - Entity ID
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated children data
    */
   const findDirectChildren = async (entityId: string, page = 1, limit = 10) => {
     try {
@@ -94,9 +105,6 @@ export const createEntityRepository = () => {
         order: [["creation_time", "DESC"]],
       })
       
-      logger.debug(`findDirectChildren: Found ${count} total children for ${entityId}, returning ${rows.length} on page ${page}`)
-      
-      // Convert Sequelize instances to plain objects
       const plainData = rows.map(row => row.get() as Entity)
       
       return { data: plainData, total: count }
@@ -106,6 +114,12 @@ export const createEntityRepository = () => {
     }
   }
 
+  /**
+   * Creates a new entity
+   * @param data - Entity creation data
+   * @param createdBy - User ID of creator
+   * @returns Created entity
+   */
   const createEntity = async (data: CreateEntityDTO, createdBy: string) => {
     const entityInstance = await Entity.create({
       ...data,
@@ -115,6 +129,12 @@ export const createEntityRepository = () => {
     return entityInstance.get() as Entity
   }
 
+  /**
+   * Updates an existing entity
+   * @param id - Entity ID
+   * @param data - Entity update data
+   * @returns Updated entity or null if not found
+   */
   const updateEntity = async (id: string, data: UpdateEntityDTO) => {
     const entityInstance = await Entity.findByPk(id)
     if (!entityInstance) return null
@@ -129,41 +149,37 @@ export const createEntityRepository = () => {
     return entityInstance.get() as Entity
   }
 
+  /**
+   * Paginates entities with optional filters
+   * @param page - Page number
+   * @param limit - Items per page
+   * @param profileId - Optional profile filter
+   * @param accessibleEntityIds - Optional hierarchy filter
+   * @param parentEntityId - Optional parent entity filter
+   * @returns Paginated entity data
+   */
   const paginateEntities = async (page = 1, limit = 10, profileId?: string, accessibleEntityIds?: string[], parentEntityId?: string | null) => {
     const where: any = {}
     
-    // Handle profileId filter (skip if empty string)
     if (profileId && profileId.trim() !== "") {
       where.profile_id = profileId
-      logger.debug(`Filtering by profileId: ${profileId}`)
     }
     
-    // Handle parentEntityId filter (list child entities of a specific entity)
     if (parentEntityId !== null && parentEntityId !== undefined) {
       where.entity_id = parentEntityId
-      logger.debug(`Filtering by parentEntityId (children of): ${parentEntityId}`)
     }
     
-    // Handle hierarchy filtering using IN clause (only if no parentEntityId filter)
     if (parentEntityId === null || parentEntityId === undefined) {
       if (accessibleEntityIds && accessibleEntityIds.length > 0) {
         where.id = {
           [Op.in]: accessibleEntityIds
         }
-        logger.debug(`Filtering by accessibleEntityIds (${accessibleEntityIds.length} entities)`)
       } else if (accessibleEntityIds === undefined) {
-        // undefined means root admin - show all entities (no filter)
-        logger.debug('No accessibleEntityIds filter (root admin - showing all entities)')
+        // Root admin - no filter
       } else {
-        // accessibleEntityIds is empty array - no accessible entities
-        logger.warn('accessibleEntityIds is empty array - user has no accessible entities')
-        // Force empty result by setting impossible condition
         where.id = { [Op.in]: [] }
       }
     }
-
-    logger.debug('Entity query where clause:', JSON.stringify(where))
-    logger.info('Entity query where clause:', JSON.stringify(where))
 
     const { count, rows } = await Entity.findAndCountAll({
       where,
@@ -172,18 +188,16 @@ export const createEntityRepository = () => {
       order: [["creation_time", "DESC"]],
     })
 
-    logger.debug(`Found ${count} total entities, returning ${rows.length} on page ${page}`)
-    logger.info(`paginateEntities: Found ${count} total entities, returning ${rows.length} on page ${page}`)
-    if (rows.length > 0) {
-      logger.info(`paginateEntities: Entity IDs returned:`, rows.map((r: any) => r.id))
-    }
-
-    // Convert Sequelize instances to plain objects
     const plainData = rows.map(row => row.get() as Entity)
 
     return { data: plainData, total: count }
   }
 
+  /**
+   * Finds all entities accessible by a user's entity
+   * @param userEntityId - User's entity ID
+   * @returns Array of accessible entities
+   */
   const findByAccessibleEntities = async (userEntityId: string) => {
     const accessibleIds = await getAccessibleEntityIds(userEntityId)
     const entities = await Entity.findAll({
@@ -197,7 +211,11 @@ export const createEntityRepository = () => {
     return entities.map(entity => entity.get() as Entity)
   }
 
-  // Override base findById to return plain object
+  /**
+   * Finds an entity by ID (returns plain object)
+   * @param id - Entity ID
+   * @returns Entity or null if not found
+   */
   const findById = async (id: string) => {
     const entityInstance = await Entity.findByPk(id)
     if (!entityInstance) return null

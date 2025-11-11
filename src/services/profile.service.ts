@@ -12,36 +12,44 @@ export const createProfileService = () => {
   const profileRepository = createProfileRepository()
   const entityRepository = createEntityRepository()
 
+  /**
+   * Retrieves a profile by ID and validates access
+   * @param id - Profile ID
+   * @param user - Authenticated user context
+   * @returns Profile object
+   */
   const getProfileById = async (id: string, user: AuthContext): Promise<Profile> => {
     const profile = await profileRepository.findById(id)
     if (!profile) {
       throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
     }
 
-    // Global profiles (entity_id = null) - only root admin can access
     if (profile.entity_id === null) {
       const isRoot = await isRootAdmin(user.entityId)
       if (!isRoot) {
         throw new AppError("Only root admin can access global profiles", HTTP_STATUS.FORBIDDEN)
       }
     } else {
-      // Entity-scoped profiles - validate entity access
       await validateEntityAccess(user.entityId, profile.entity_id, "profile")
     }
 
     return profile
   }
 
+  /**
+   * Creates a new profile
+   * @param data - Profile creation data
+   * @param user - Authenticated user context
+   * @returns Created profile
+   */
   const createProfile = async (data: CreateProfileDTO, user: AuthContext): Promise<Profile> => {
     try {
-      // Global profiles - only root admin can create
       if (data.entity_id === null || data.entity_id === undefined) {
         const isRoot = await isRootAdmin(user.entityId)
         if (!isRoot) {
           throw new AppError("Only root admin can create global profiles", HTTP_STATUS.FORBIDDEN)
         }
       } else {
-        // Entity-scoped profiles - validate entity access
         await validateEntityAccess(user.entityId, data.entity_id, "profiles")
       }
 
@@ -53,13 +61,20 @@ export const createProfileService = () => {
     }
   }
 
+  /**
+   * Updates an existing profile
+   * @param id - Profile ID
+   * @param data - Profile update data
+   * @param user - Authenticated user context
+   * @returns Updated profile
+   */
   const updateProfile = async (
     id: string,
     data: UpdateProfileDTO,
     user: AuthContext
   ): Promise<Profile> => {
     try {
-      await getProfileById(id, user) // This validates access
+      await getProfileById(id, user)
       const updated = await profileRepository.updateProfile(id, data)
       if (!updated) {
         throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
@@ -72,11 +87,15 @@ export const createProfileService = () => {
     }
   }
 
+  /**
+   * Deletes a profile
+   * @param id - Profile ID
+   * @param user - Authenticated user context
+   */
   const deleteProfile = async (id: string, user: AuthContext): Promise<void> => {
     try {
-      await getProfileById(id, user) // This validates access
+      await getProfileById(id, user)
       
-      // Check if profile is assigned to any entities
       const entitiesWithProfile = await entityRepository.findByProfileId(id)
       if (entitiesWithProfile.length > 0) {
         throw new AppError(
@@ -93,6 +112,14 @@ export const createProfileService = () => {
     }
   }
 
+  /**
+   * Lists profiles with pagination and optional entity filter
+   * @param entityId - Optional entity ID filter (null for global profiles)
+   * @param user - Authenticated user context
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated profile list
+   */
   const listProfiles = async (
     entityId: string | null | undefined,
     user: AuthContext,
@@ -103,17 +130,10 @@ export const createProfileService = () => {
       const isRoot = await isRootAdmin(user.entityId)
       let accessibleEntityIds: string[] | undefined
 
-      // Handle null/undefined - list all accessible profiles
       if (entityId === null || entityId === undefined) {
-        // List all profiles user can access
         if (isRoot) {
-          // Root admin can see all profiles (global + all entity-scoped)
-          logger.debug("listProfiles: Root admin - returning all profiles")
-          accessibleEntityIds = undefined // No filter
+          accessibleEntityIds = undefined
         } else {
-          // Non-root users can only see profiles from their accessible hierarchy
-          // Global profiles are NOT accessible to non-root users (security: root-only)
-          logger.debug(`listProfiles: Non-root user - returning only accessible entity profiles from hierarchy`)
           accessibleEntityIds = await getAccessibleEntityIds(user.entityId)
         }
         const { data, total } = await profileRepository.paginateProfiles(page, limit, undefined, accessibleEntityIds)
@@ -125,14 +145,10 @@ export const createProfileService = () => {
           totalPages: Math.ceil(total / limit),
         }
       } else {
-        // List profiles for specific entity
-        // Check if requesting global profiles (entityId is explicitly "null" string or special value)
         if (entityId === "null" || entityId === "") {
-          // Global profiles - only root admin
           if (!isRoot) {
             throw new AppError("Only root admin can view global profiles", HTTP_STATUS.FORBIDDEN)
           }
-          logger.debug("listProfiles: Returning global profiles only")
           const { data, total } = await profileRepository.paginateProfiles(page, limit, null)
           return {
             data,
@@ -142,9 +158,6 @@ export const createProfileService = () => {
             totalPages: Math.ceil(total / limit),
           }
         } else {
-          // Entity-scoped profiles - list profiles for that entity
-          // Note: Access validation is handled by enforceEntityAccessQuery middleware
-          logger.debug(`listProfiles: Returning profiles for entity: ${entityId}`)
           const { data, total } = await profileRepository.paginateProfiles(page, limit, entityId)
           return {
             data,

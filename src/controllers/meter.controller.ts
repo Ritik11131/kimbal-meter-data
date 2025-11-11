@@ -6,6 +6,11 @@ import { extractListQueryParams } from "../utils/queryExtraction"
 
 const meterService = createMeterService()
 
+/**
+ * Retrieves a meter by ID
+ * @param req - Express request object containing meter ID in params
+ * @param res - Express response object
+ */
 export const getById = async (req: Request, res: Response) => {
   try {
     const meter = await meterService.getMeterById(req.params.id, req.user!)
@@ -15,6 +20,11 @@ export const getById = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Creates a new meter
+ * @param req - Express request object containing meter data (entityId, name, meterType, attributes) in body
+ * @param res - Express response object
+ */
 export const create = async (req: Request, res: Response) => {
   try {
     const { entityId, name, meterType, attributes } = req.body
@@ -25,6 +35,11 @@ export const create = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Updates an existing meter
+ * @param req - Express request object containing meter ID in params and update data (name, attributes) in body
+ * @param res - Express response object
+ */
 export const update = async (req: Request, res: Response) => {
   try {
     const { name, attributes } = req.body
@@ -35,9 +50,13 @@ export const update = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Lists meters with pagination and optional entity filter
+ * @param req - Express request object containing query parameters (page, limit, entityId)
+ * @param res - Express response object
+ */
 export const list = async (req: Request, res: Response) => {
   try {
-    // Query parameters are validated by validateQuery middleware
     const { page, limit, entityId } = extractListQueryParams(req)
     
     const result = await meterService.listMeters(entityId, req.user!, page, limit)
@@ -47,6 +66,11 @@ export const list = async (req: Request, res: Response) => {
   }
 }
 
+/**
+ * Deletes a meter
+ * @param req - Express request object containing meter ID in params
+ * @param res - Express response object
+ */
 export const remove = async (req: Request, res: Response) => {
   try {
     await meterService.deleteMeter(req.params.id, req.user!)
