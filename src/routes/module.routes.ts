@@ -4,13 +4,14 @@ import { authenticate } from "../middleware/authentication"
 import { authorize, authorizeRead } from "../middleware/authorization"
 import { validate } from "../utils/validation"
 import { createModuleSchema, updateModuleSchema } from "../validators/module.validator"
+import { validateQuery, moduleListQuerySchema } from "../validators/query.validator"
 import { validateUUIDParams } from "../utils/uuidValidation"
 import { MODULES } from "../config/constants"
 
 const router = Router()
 
 // List all modules (root admin only - enforced in service)
-router.get("/", authenticate, authorizeRead([MODULES.MODULE]), (req, res, next) => {
+router.get("/", authenticate, authorizeRead([MODULES.MODULE]), validateQuery(moduleListQuerySchema), (req, res, next) => {
   moduleController.list(req, res).catch(next)
 })
 

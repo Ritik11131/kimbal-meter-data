@@ -21,6 +21,32 @@ export interface PaginatedResponse<T> {
   totalPages: number
 }
 
+/**
+ * Pagination metadata for API responses
+ * Provides comprehensive pagination information for frontend consumption
+ */
+export interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPreviousPage: boolean
+}
+
+/**
+ * Enhanced paginated API response structure
+ * Groups pagination metadata for better organization and readability
+ */
+export interface PaginatedApiResponse<T> {
+  success: boolean
+  message: string
+  data: T[]
+  pagination: PaginationMeta
+  timestamp: number
+  path?: string
+}
+
 export interface BaseEntity {
   id: string
   created_by: string | null

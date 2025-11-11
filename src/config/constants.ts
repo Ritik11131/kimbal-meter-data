@@ -53,3 +53,14 @@ export const RESOURCE_TYPE_MAP: Record<string, string> = {
   entities: "Entities",
   entity: "Entities",
 } as const
+
+export const QUERY_VALIDATION = {
+  PAGINATION: {
+    MIN_PAGE: 1,
+    MIN_LIMIT: 1,
+    MAX_LIMIT: 100,
+  },
+  ENTITY_ID_SPECIAL_VALUES: ["null", ""] as const,
+  BOOLEAN_TRUE_VALUES: ["true", "1"] as const,
+  BOOLEAN_FALSE_VALUES: ["false", "0"] as const,
+} as const

@@ -2,8 +2,6 @@ import type { Request, Response } from "express"
 import { createProfileService } from "../services/profile.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
-import { AppError } from "../middleware/errorHandler"
-import { isValidUUID } from "../utils/uuidValidation"
 
 const profileService = createProfileService()
 
@@ -45,27 +43,10 @@ export const remove = async (req: Request, res: Response) => {
 
 export const list = async (req: Request, res: Response) => {
   try {
-    // Validate and parse pagination parameters
-    const page = req.query.page ? Number(req.query.page) : 1
-    const limit = req.query.limit ? Number(req.query.limit) : 10
-    
-    // Validate page and limit
-    if (page < 1 || !Number.isInteger(page)) {
-      throw new AppError('page parameter must be a positive integer', HTTP_STATUS.BAD_REQUEST)
-    }
-    if (limit < 1 || limit > 100 || !Number.isInteger(limit)) {
-      throw new AppError('limit parameter must be between 1 and 100', HTTP_STATUS.BAD_REQUEST)
-    }
-    
-    // Handle query param: "null" string, empty string, undefined, or actual entity ID
-    let entityId: string | null | undefined = req.query.entityId as string | undefined
-    
-    // Convert string "null" or empty string to actual null
-    if (entityId === "null" || entityId === "" || entityId === undefined) {
-      entityId = null
-    } else if (entityId && !isValidUUID(entityId)) {
-      throw new AppError('entityId parameter must be a valid UUID', HTTP_STATUS.BAD_REQUEST)
-    }
+    // Query parameters are validated by validateQuery middleware
+    const page = typeof req.query.page === 'number' ? req.query.page : 1
+    const limit = typeof req.query.limit === 'number' ? req.query.limit : 10
+    const entityId = (typeof req.query.entityId === 'string' || req.query.entityId === null) ? req.query.entityId : undefined
     
     const result = await profileService.listProfiles(entityId, req.user!, page, limit)
     sendResponse(res, HTTP_STATUS.OK, result, "Profiles listed", req.path)

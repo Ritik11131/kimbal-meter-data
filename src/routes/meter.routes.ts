@@ -5,13 +5,14 @@ import { authorize, authorizeRead } from "../middleware/authorization"
 import { enforceEntityAccessQuery, enforceResourceEntityAccess } from "../middleware/hierarchy"
 import { validate } from "../utils/validation"
 import { createMeterSchema, updateMeterSchema } from "../validators/meter.validator"
+import { validateQuery, meterListQuerySchema } from "../validators/query.validator"
 import { validateUUIDParams } from "../utils/uuidValidation"
 import { MODULES } from "../config/constants"
 
 const router = Router()
 
 // List meters (supports ?entityId=xxx query param) - must come before /:id route
-router.get("/", authenticate, authorizeRead([MODULES.METER]), enforceEntityAccessQuery("entityId"), (req, res, next) => meterController.list(req, res).catch(next))
+router.get("/", authenticate, authorizeRead([MODULES.METER]), validateQuery(meterListQuerySchema), enforceEntityAccessQuery("entityId"), (req, res, next) => meterController.list(req, res).catch(next))
 // Get meter by ID - must come after list route
 router.get("/:id", authenticate, authorizeRead([MODULES.METER]), validateUUIDParams(["id"]), enforceResourceEntityAccess("meter"), (req, res, next) => meterController.getById(req, res).catch(next))
 

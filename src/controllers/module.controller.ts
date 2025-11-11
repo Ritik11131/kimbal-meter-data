@@ -43,17 +43,9 @@ export const remove = async (req: Request, res: Response) => {
 
 export const list = async (req: Request, res: Response) => {
   try {
-    // Validate and parse pagination parameters
-    const page = req.query.page ? Number(req.query.page) : 1
-    const limit = req.query.limit ? Number(req.query.limit) : 10
-    
-    // Validate page and limit
-    if (page < 1 || !Number.isInteger(page)) {
-      throw new Error('page parameter must be a positive integer')
-    }
-    if (limit < 1 || limit > 100 || !Number.isInteger(limit)) {
-      throw new Error('limit parameter must be between 1 and 100')
-    }
+    // Query parameters are validated by validateQuery middleware
+    const page = typeof req.query.page === 'number' ? req.query.page : 1
+    const limit = typeof req.query.limit === 'number' ? req.query.limit : 10
     
     const result = await moduleService.listModules(req.user!, page, limit)
     sendResponse(res, HTTP_STATUS.OK, result, "Modules listed", req.path)
