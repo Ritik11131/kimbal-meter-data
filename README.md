@@ -74,7 +74,7 @@ Enterprise-grade backend for a multi-tenant smart meter management system built 
 ┌─────────────────────────────────────────────────────────────┐
 │                    EXPRESS MIDDLEWARE LAYER                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   CORS       │  │   Helmet    │  │   Morgan     │     │
+│  │   CORS       │  │   Helmet    │  │Request Logger│     │
 │  │  (Security)  │  │  (Headers)  │  │  (Logging)   │     │
 │  └──────────────┘  └──────────────┘  └──────────────┘     │
 └───────────────────────────┬─────────────────────────────────┘
@@ -239,7 +239,7 @@ User from "KMP" (Tenant) CANNOT access:
 ┌────────────────────────────────────────────────────────────────────┐
 │ Step 1: Express App (app.ts)                                        │
 │   • Parse request                                                   │
-│   • Apply global middleware (CORS, Helmet, Morgan)                │
+│   • Apply global middleware (CORS, Helmet, Request Logger)         │
 │   • Route to /api/entities                                          │
 └────────────────────────────┬───────────────────────────────────────┘
                              │

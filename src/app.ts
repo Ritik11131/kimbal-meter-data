@@ -2,10 +2,10 @@ import express, { type Application, type Request, type Response } from "express"
 import "express-async-errors"
 import cors from "cors"
 import helmet from "helmet"
-import morgan from "morgan"
 import { initializeSequelize, getSequelize } from "./database/connection"
 import { validateEnv, envConfig } from "./config/environment"
 import { errorHandler } from "./middleware/errorHandler"
+import { requestLogger } from "./middleware/requestLogger"
 import { sendResponse } from "./utils/response"
 import { HTTP_STATUS } from "./config/constants"
 import logger from "./utils/logger"
@@ -24,7 +24,7 @@ app.use(cors({ origin: envConfig.CORS_ORIGIN }))
 app.use(express.json({ limit: "10mb" }))
 app.use(express.urlencoded({ limit: "10mb", extended: true }))
 
-app.use(morgan("combined", { stream: { write: (message) => logger.info(message) } }))
+app.use(requestLogger)
 
 app.get("/health", (req: Request, res: Response) => {
   sendResponse(res, HTTP_STATUS.OK, { status: "healthy" }, "Server is running", req.path)
