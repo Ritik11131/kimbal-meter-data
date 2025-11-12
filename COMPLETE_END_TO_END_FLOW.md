@@ -1687,7 +1687,83 @@ API Calls:
 | **4.4** | Customer Admin | Create Consumer Role | `POST /api/roles` | Consumer role created |
 | **4.5** | Customer Admin | Create Consumer User | `POST /api/users` | Consumer user created |
 | **5.1** | Customer Admin | Create Meter | `POST /api/meters` | Meter created |
-| **5.2** | Consumer | View Meters | `GET /api/meters/entity/:id` | Meters displayed |
+| **5.2** | Consumer | View Meters | `GET /api/meters?page=1&limit=10&entityId=entity-uuid` | Meters displayed |
+
+---
+
+## 📝 Important Notes on API Changes
+
+### **Query Parameter Requirements**
+
+All **GET list endpoints** now require pagination parameters:
+
+- ✅ **Required**: `page` (minimum: 1) and `limit` (minimum: 1, maximum: 100)
+- ✅ **Optional**: `entityId` (for filtering by entity)
+
+**Examples:**
+```bash
+# List entities
+GET /api/entities?page=1&limit=10
+
+# List users with entity filter
+GET /api/users?page=1&limit=10&entityId=entity-uuid
+
+# List profiles
+GET /api/profiles?page=1&limit=10&entityId=null
+
+# List roles
+GET /api/roles?page=1&limit=10&entityId=entity-uuid
+
+# List meters
+GET /api/meters?page=1&limit=10&entityId=entity-uuid
+
+# List modules (root admin only)
+GET /api/modules?page=1&limit=10
+```
+
+### **Paginated Response Structure**
+
+All list endpoints return data in the following optimized structure:
+
+```json
+{
+  "success": true,
+  "message": "Resources listed",
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 100,
+    "totalPages": 10,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "timestamp": 1234567890,
+  "path": "/api/resource"
+}
+```
+
+**Key Changes:**
+- Pagination metadata is now grouped in a `pagination` object
+- Added `hasNextPage` and `hasPreviousPage` for easier frontend navigation
+- All pagination fields moved from root level to `pagination` object
+
+### **Hierarchy Endpoint**
+
+The hierarchy endpoint (`GET /api/entities/:id/hierarchy`) has different requirements:
+
+- `page` and `limit` are **optional** (only required when `paginateRootChildren=true`)
+- `depth` is optional (default: unlimited)
+- `paginateRootChildren` is optional (boolean or string: "true"/"false"/"1"/"0")
+
+**Example:**
+```bash
+# Full hierarchy (no pagination required)
+GET /api/entities/entity-uuid/hierarchy
+
+# Paginated root children
+GET /api/entities/entity-uuid/hierarchy?paginateRootChildren=true&page=1&limit=20
+```
 
 ---
 

@@ -11,8 +11,13 @@ export const createModuleService = () => {
   const moduleRepository = createModuleRepository()
   const roleRepository = createRoleRepository()
 
+  /**
+   * Retrieves a module by ID (root admin only)
+   * @param id - Module ID
+   * @param user - Authenticated user context
+   * @returns Module object
+   */
   const getModuleById = async (id: string, user: AuthContext): Promise<Module> => {
-    // Modules are system-wide, only root admin can access
     const isRoot = await isRootAdmin(user.entityId)
     if (!isRoot) {
       throw new AppError("Only root admin can access modules", HTTP_STATUS.FORBIDDEN)
@@ -25,15 +30,19 @@ export const createModuleService = () => {
     return module
   }
 
+  /**
+   * Creates a new module (root admin only)
+   * @param data - Module creation data
+   * @param user - Authenticated user context
+   * @returns Created module
+   */
   const createModule = async (data: CreateModuleDTO, user: AuthContext): Promise<Module> => {
     try {
-      // Only root admin can create modules
       const isRoot = await isRootAdmin(user.entityId)
       if (!isRoot) {
         throw new AppError("Only root admin can create modules", HTTP_STATUS.FORBIDDEN)
       }
 
-      // Check if module with same name exists
       const existing = await moduleRepository.findByName(data.name)
       if (existing) {
         throw new AppError("Module with this name already exists", HTTP_STATUS.CONFLICT)
@@ -47,21 +56,26 @@ export const createModuleService = () => {
     }
   }
 
+  /**
+   * Updates an existing module (root admin only)
+   * @param id - Module ID
+   * @param data - Module update data
+   * @param user - Authenticated user context
+   * @returns Updated module
+   */
   const updateModule = async (
     id: string,
     data: UpdateModuleDTO,
     user: AuthContext
   ): Promise<Module> => {
     try {
-      // Only root admin can update modules
       const isRoot = await isRootAdmin(user.entityId)
       if (!isRoot) {
         throw new AppError("Only root admin can update modules", HTTP_STATUS.FORBIDDEN)
       }
 
-      await getModuleById(id, user) // This validates access
+      await getModuleById(id, user)
 
-      // Check name uniqueness if name is being updated
       if (data.name) {
         const existing = await moduleRepository.findByName(data.name)
         if (existing && existing.id !== id) {
@@ -81,17 +95,20 @@ export const createModuleService = () => {
     }
   }
 
+  /**
+   * Deletes a module (root admin only)
+   * @param id - Module ID
+   * @param user - Authenticated user context
+   */
   const deleteModule = async (id: string, user: AuthContext): Promise<void> => {
     try {
-      // Only root admin can delete modules
       const isRoot = await isRootAdmin(user.entityId)
       if (!isRoot) {
         throw new AppError("Only root admin can delete modules", HTTP_STATUS.FORBIDDEN)
       }
 
-      await getModuleById(id, user) // This validates access
+      await getModuleById(id, user)
       
-      // Check if module is referenced in any role permissions
       const allRoles = await roleRepository.findAll()
       const rolesUsingModule = allRoles.filter(role => {
         const permissions = (role.attributes as any)?.roles || []
@@ -113,13 +130,19 @@ export const createModuleService = () => {
     }
   }
 
+  /**
+   * Lists modules with pagination (root admin only)
+   * @param user - Authenticated user context
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated module list
+   */
   const listModules = async (
     user: AuthContext,
     page = 1,
     limit = 10
   ): Promise<{ data: Module[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
-      // Only root admin can list modules
       const isRoot = await isRootAdmin(user.entityId)
       if (!isRoot) {
         throw new AppError("Only root admin can list modules", HTTP_STATUS.FORBIDDEN)

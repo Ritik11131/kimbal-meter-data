@@ -11,7 +11,17 @@ import type {
 } from "sequelize"
 import logger from "../utils/logger"
 
+/**
+ * Creates a base repository with common CRUD operations
+ * @param model - Sequelize model class
+ * @returns Repository object with CRUD methods
+ */
 export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
+  /**
+   * Finds all records matching the options
+   * @param options - Sequelize find options
+   * @returns Array of model instances
+   */
   async findAll(options: FindOptions<Attributes<T>> = {}): Promise<T[]> {
     try {
       return await model.findAll(options)
@@ -21,6 +31,12 @@ export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
     }
   },
 
+  /**
+   * Finds a record by ID
+   * @param id - Record ID
+   * @param options - Sequelize find options
+   * @returns Model instance or null
+   */
   async findById(id: string | number, options: FindOptions<Attributes<T>> = {}): Promise<T | null> {
     try {
       return await model.findByPk(id, options)
@@ -30,6 +46,12 @@ export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
     }
   },
 
+  /**
+   * Finds a single record matching the where condition
+   * @param where - Where conditions
+   * @param options - Sequelize find options
+   * @returns Model instance or null
+   */
   async findOne(where: WhereOptions<Attributes<T>>, options: FindOptions<Attributes<T>> = {}): Promise<T | null> {
     try {
       return await model.findOne({ where, ...options })
@@ -39,6 +61,12 @@ export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
     }
   },
 
+  /**
+   * Creates a new record
+   * @param data - Record data
+   * @param options - Sequelize create options
+   * @returns Created model instance
+   */
   async create(data: Partial<T["_creationAttributes"]>, options?: CreateOptions<Attributes<T>>): Promise<T> {
     try {
       return await model.create(data as T["_creationAttributes"], options)
@@ -48,6 +76,13 @@ export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
     }
   },
 
+  /**
+   * Updates a record by ID
+   * @param id - Record ID
+   * @param data - Update data
+   * @param options - Sequelize update options
+   * @returns Updated model instance or null
+   */
   async update(
     id: string | number,
     data: Partial<T["_creationAttributes"]>,
@@ -64,17 +99,30 @@ export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
     }
   },
 
+  /**
+   * Deletes a record by ID
+   * @param id - Record ID
+   * @param options - Sequelize destroy options
+   * @returns Number of deleted records
+   */
   async delete(id: string | number, options?: DestroyOptions<Attributes<T>>): Promise<number> {
-  try {
-    const whereCondition = { id } as any
-    return await model.destroy({ where: whereCondition, ...options })
-  } catch (error) {
-    logger.error(`Delete failed on ${model.name}:`, error)
-    throw error
-  }
-},
+    try {
+      const whereCondition = { id } as any
+      return await model.destroy({ where: whereCondition, ...options })
+    } catch (error) {
+      logger.error(`Delete failed on ${model.name}:`, error)
+      throw error
+    }
+  },
 
-
+  /**
+   * Paginates records with optional where conditions
+   * @param page - Page number
+   * @param limit - Items per page
+   * @param where - Where conditions
+   * @param options - Sequelize find options
+   * @returns Paginated data with total count
+   */
   async paginate(
     page = 1,
     limit = 10,
@@ -97,6 +145,12 @@ export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
     }
   },
 
+  /**
+   * Creates multiple records in bulk
+   * @param data - Array of record data
+   * @param options - Sequelize create options
+   * @returns Array of created model instances
+   */
   async bulkCreate(
     data: Partial<T["_creationAttributes"]>[],
     options?: CreateOptions<Attributes<T>>
@@ -109,6 +163,11 @@ export const createBaseRepository = <T extends Model>(model: ModelCtor<T>) => ({
     }
   },
 
+  /**
+   * Counts records matching the options
+   * @param options - Sequelize count options
+   * @returns Count of matching records
+   */
   async count(options: CountOptions<Attributes<T>> = {}): Promise<number> {
     try {
       return await model.count(options)

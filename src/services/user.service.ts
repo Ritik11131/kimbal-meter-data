@@ -14,29 +14,42 @@ export const createUserService = () => {
   const userRepository = createUserRepository()
   const roleRepository = createRoleRepository()
 
+  /**
+   * Removes password fields from user object
+   * @param user - User object with password
+   * @returns User object without password fields
+   */
   const excludePassword = (user: User): UserWithoutPassword => {
     const { password_hash, salt, ...userWithoutPassword } = user
     return userWithoutPassword as UserWithoutPassword
   }
 
+  /**
+   * Retrieves a user by ID and validates access
+   * @param id - User ID
+   * @param currentUser - Authenticated user context
+   * @returns User without password fields
+   */
   const getUserById = async (id: string, currentUser: AuthContext): Promise<UserWithoutPassword> => {
     const user = await userRepository.findById(id)
     if (!user) {
       throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
     }
-    // Validate current user has access to the target user's entity
     await validateEntityAccess(currentUser.entityId, user.entity_id, "user")
     return excludePassword(user)
   }
 
+  /**
+   * Creates a new user
+   * @param data - User creation data
+   * @param user - Authenticated user context
+   * @returns Created user without password fields
+   */
   const createUser = async (data: CreateUserDTO, user: AuthContext): Promise<UserWithoutPassword> => {
     try {
-      // Use transaction to ensure atomicity of user creation
       return await withTransaction(async (transaction) => {
-        // Validate user can access the entity where new user will be created
         await validateEntityAccess(user.entityId, data.entity_id, "users")
 
-        // Check if user exists by email
         const existingEmail = await userRepository.findByEmail(data.email)
         if (existingEmail) {
           throw new AppError(ERROR_MESSAGES.DUPLICATE_EMAIL, HTTP_STATUS.CONFLICT)
@@ -47,13 +60,11 @@ export const createUserService = () => {
           throw new AppError("Mobile number already registered", HTTP_STATUS.CONFLICT)
         }
 
-        // Verify role exists
         const role = await roleRepository.findById(data.role_id)
         if (!role) {
           throw new AppError("Role not found", HTTP_STATUS.NOT_FOUND)
         }
 
-        // Hash password
         const salt = CryptoUtil.generateSalt()
         const passwordHash = CryptoUtil.hashPassword(data.password, salt)
 
@@ -67,6 +78,13 @@ export const createUserService = () => {
     }
   }
 
+  /**
+   * Updates an existing user
+   * @param id - User ID
+   * @param data - User update data
+   * @param user - Authenticated user context
+   * @returns Updated user without password fields
+   */
   const updateUser = async (id: string, data: UpdateUserDTO, user: AuthContext): Promise<UserWithoutPassword> => {
     try {
       await getUserById(id, user)
@@ -82,6 +100,11 @@ export const createUserService = () => {
     }
   }
 
+  /**
+   * Deletes a user (soft delete)
+   * @param id - User ID
+   * @param user - Authenticated user context
+   */
   const deleteUser = async (id: string, user: AuthContext): Promise<void> => {
     try {
       await getUserById(id, user)
@@ -93,6 +116,14 @@ export const createUserService = () => {
     }
   }
 
+  /**
+   * Lists users with pagination and optional entity filter
+   * @param entityId - Optional entity ID filter
+   * @param currentUser - Authenticated user context
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated user list
+   */
   const listUsers = async (
     entityId: string | null | undefined,
     currentUser: AuthContext,
@@ -100,8 +131,6 @@ export const createUserService = () => {
     limit = 10
   ): Promise<{ data: UserWithoutPassword[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
-      // If entityId is provided, list users for that entity
-      // Note: Access validation is handled by enforceEntityAccessQuery middleware
       if (entityId) {
         const { data, total } = await userRepository.paginateByEntityId(entityId, page, limit)
         return {
@@ -113,7 +142,6 @@ export const createUserService = () => {
         }
       }
       
-      // If no entityId, list all users from accessible entities
       const accessibleEntityIds = await getAccessibleEntityIds(currentUser.entityId)
       const { data, total } = await userRepository.paginateByAccessibleEntities(accessibleEntityIds, page, limit)
       return {
@@ -130,7 +158,14 @@ export const createUserService = () => {
     }
   }
 
-  // Keep old method for backward compatibility (if needed)
+  /**
+   * Lists users by entity (backward compatibility)
+   * @param entityId - Entity ID
+   * @param currentUser - Authenticated user context
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated user list
+   */
   const listUsersByEntity = async (
     entityId: string,
     currentUser: AuthContext,
@@ -140,6 +175,12 @@ export const createUserService = () => {
     return listUsers(entityId, currentUser, page, limit)
   }
 
+  /**
+   * Changes user password
+   * @param userId - User ID
+   * @param currentPassword - Current password
+   * @param newPassword - New password
+   */
   const changePassword = async (userId: string, currentPassword: string, newPassword: string): Promise<void> => {
     try {
       const user = await userRepository.findById(userId)

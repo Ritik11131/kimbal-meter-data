@@ -9,16 +9,30 @@ import { validateEntityAccess, getAccessibleEntityIds } from "../utils/hierarchy
 export const createMeterService = () => {
   const meterRepository = createMeterRepository()
 
+  /**
+   * Retrieves a meter by ID and validates access
+   * @param id - Meter ID
+   * @param user - Authenticated user context
+   * @returns Meter object
+   */
   const getMeterById = async (id: string, user: AuthContext): Promise<Meter> => {
     const meter = await meterRepository.findById(id)
     if (!meter) {
       throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
     }
-    // Validate user has access to the meter's entity
     await validateEntityAccess(user.entityId, meter.entity_id, "meter")
     return meter
   }
 
+  /**
+   * Creates a new meter
+   * @param entityId - Entity ID where meter will be created
+   * @param name - Meter name
+   * @param meterType - Meter type (PHYSICAL or VIRTUAL)
+   * @param user - Authenticated user context
+   * @param attributes - Optional meter attributes
+   * @returns Created meter
+   */
   const createMeter = async (
     entityId: string,
     name: string,
@@ -27,10 +41,8 @@ export const createMeterService = () => {
     attributes?: Record<string, any>,
   ): Promise<Meter> => {
     try {
-      // Validate user can access the entity where meter will be created
       await validateEntityAccess(user.entityId, entityId, "meters")
 
-      // Validate meter type
       if (!Object.values(METER_TYPES).includes(meterType as any)) {
         throw new AppError("Invalid meter type", HTTP_STATUS.BAD_REQUEST)
       }
@@ -43,6 +55,14 @@ export const createMeterService = () => {
     }
   }
 
+  /**
+   * Updates an existing meter
+   * @param id - Meter ID
+   * @param user - Authenticated user context
+   * @param name - Optional meter name
+   * @param attributes - Optional meter attributes
+   * @returns Updated meter
+   */
   const updateMeter = async (id: string, user: AuthContext, name?: string, attributes?: Record<string, any>): Promise<Meter> => {
     try {
       await getMeterById(id, user)
@@ -58,6 +78,14 @@ export const createMeterService = () => {
     }
   }
 
+  /**
+   * Lists meters with pagination and optional entity filter
+   * @param entityId - Optional entity ID filter
+   * @param user - Authenticated user context
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated meter list
+   */
   const listMeters = async (
     entityId: string | null | undefined,
     user: AuthContext,
@@ -65,8 +93,6 @@ export const createMeterService = () => {
     limit = 10
   ): Promise<{ data: Meter[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
-      // If entityId is provided, list meters for that entity
-      // Note: Access validation is handled by enforceEntityAccessQuery middleware
       if (entityId) {
         const { data, total } = await meterRepository.paginateByEntityId(entityId, page, limit)
         return {
@@ -78,7 +104,6 @@ export const createMeterService = () => {
         }
       }
       
-      // If no entityId, list all meters from accessible entities
       const accessibleEntityIds = await getAccessibleEntityIds(user.entityId)
       const { data, total } = await meterRepository.paginateByAccessibleEntities(accessibleEntityIds, page, limit)
       return {
@@ -95,7 +120,14 @@ export const createMeterService = () => {
     }
   }
 
-  // Keep old method for backward compatibility (if needed)
+  /**
+   * Lists meters by entity (backward compatibility)
+   * @param entityId - Entity ID
+   * @param user - Authenticated user context
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated meter list
+   */
   const listMetersByEntity = async (
     entityId: string,
     user: AuthContext,
@@ -105,11 +137,15 @@ export const createMeterService = () => {
     return listMeters(entityId, user, page, limit)
   }
 
+  /**
+   * Deletes a meter
+   * @param id - Meter ID
+   * @param user - Authenticated user context
+   */
   const deleteMeter = async (id: string, user: AuthContext): Promise<void> => {
     try {
-      // Validate access before deleting
       await getMeterById(id, user)
-      const deleted = await meterRepository.deleteMeter(id)
+      const deleted = await meterRepository.delete(id)
       if (deleted === 0) {
         throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
       }

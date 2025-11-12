@@ -5,14 +5,21 @@ import type { Module as ModuleType, CreateModuleDTO, UpdateModuleDTO } from "../
 export const createModuleRepository = () => {
   const baseRepo = createBaseRepository(Module)
 
-  const findById = async (id: string): Promise<ModuleType | null> => {
-    return Module.findByPk(id)
-  }
-
+  /**
+   * Finds a module by name
+   * @param name - Module name
+   * @returns Module or null if not found
+   */
   const findByName = async (name: string): Promise<ModuleType | null> => {
     return Module.findOne({ where: { name } })
   }
 
+  /**
+   * Creates a new module
+   * @param data - Module creation data
+   * @param createdBy - User ID of creator
+   * @returns Created module
+   */
   const createModule = async (
     data: CreateModuleDTO,
     createdBy: string
@@ -23,6 +30,12 @@ export const createModuleRepository = () => {
     })
   }
 
+  /**
+   * Updates an existing module
+   * @param id - Module ID
+   * @param data - Module update data
+   * @returns Updated module or null if not found
+   */
   const updateModule = async (id: string, data: UpdateModuleDTO): Promise<ModuleType | null> => {
     const module = await Module.findByPk(id)
     if (!module) return null
@@ -34,12 +47,12 @@ export const createModuleRepository = () => {
     return module
   }
 
-  const findAll = async (): Promise<ModuleType[]> => {
-    return Module.findAll({
-      order: [["creation_time", "DESC"]],
-    })
-  }
-
+  /**
+   * Paginates modules
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated module data
+   */
   const paginateModules = async (
     page = 1,
     limit = 10
@@ -49,11 +62,9 @@ export const createModuleRepository = () => {
 
   return {
     ...baseRepo,
-    findById,
     findByName,
     createModule,
     updateModule,
-    findAll,
     paginateModules,
   }
 }

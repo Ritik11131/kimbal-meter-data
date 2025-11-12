@@ -362,7 +362,7 @@ User from "KMP" (Tenant) CANNOT access:
 ┌────────────────────────────────────────────────────────────────────┐
 │ Middleware Chain:                                                   │
 │ 1. authenticate → Verify JWT, extract user context                │
-│ 2. authorize([MODULES.ENTITY]) → Check module permission          │
+│ 2. requireWritePermission([MODULES.ENTITY]) → Check write permission │
 │ 3. validateParentEntityAccess() → Validate parent is accessible   │
 │ 4. validate(createEntitySchema) → Validate request body           │
 └────────────────────────────┬───────────────────────────────────────┘
@@ -469,14 +469,17 @@ createUser(data, user):
 **Implementation**:
 ```typescript
 // middleware/authorization.ts
-authorize(modules: string[]):
+requireWritePermission(modules: string[]):
   - Checks req.user.permissions
   - Validates user has 'write' permission for module
+  - Used for POST, PATCH, DELETE operations
   - Throws 403 if denied
 
-authorizeRead(modules: string[]):
+requireReadPermission(modules: string[]):
   - Checks req.user.permissions
-  - Validates user has 'read' or 'write' permission
+  - Validates user has 'read' OR 'write' permission
+  - Used for GET operations
+  - Throws 403 if denied
 ```
 
 ### 5. Meter Management
@@ -824,16 +827,53 @@ src/
 **Purpose**: List entities (filtered by accessible hierarchy)
 
 **Query Params**:
-- `page` (optional, default: 1)
-- `limit` (optional, default: 10)
-- `profileId` (optional)
+- `page` (required): Page number (minimum: 1)
+- `limit` (required): Items per page (minimum: 1, maximum: 100)
+- `profileId` (optional): Filter by profile ID
+- `entityId` (optional): Filter by entity ID. Use `null` to get root entities
 
 **Flow**:
 1. `authenticate` → Verify JWT
-2. Controller extracts user context
-3. Service gets accessible entity IDs
-4. Repository filters entities by accessible IDs
-5. Returns paginated results
+2. `requireReadPermission([MODULES.ENTITY])` → Check read permission
+3. `validateQuery(entityListQuerySchema)` → Validate query parameters
+4. `enforceEntityAccessQuery("entityId")` → Validate entity access
+5. Controller extracts query parameters
+6. Service gets accessible entity IDs
+7. Repository filters entities by accessible IDs
+8. Returns paginated results
+
+**Example Request**:
+```bash
+GET /api/entities?page=1&limit=10&profileId=profile-uuid
+GET /api/entities?page=1&limit=10&entityId=null
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Entities listed successfully",
+  "data": [
+    {
+      "id": "entity-uuid",
+      "name": "Ideal Energy",
+      "email_id": "admin@ideal.com",
+      "entity_id": "parent-entity-uuid",
+      "profile_id": "profile-uuid"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 100,
+    "totalPages": 10,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "timestamp": 1234567890,
+  "path": "/api/entities"
+}
+```
 
 #### `POST /api/entities`
 **Purpose**: Create new entity (with parent validation)
@@ -850,7 +890,7 @@ src/
 
 **Middleware Chain**:
 1. `authenticate` → Verify JWT
-2. `authorize([MODULES.ENTITY])` → Check module permission
+2. `requireWritePermission([MODULES.ENTITY])` → Check write permission
 3. `validateParentEntityAccess()` → Validate parent is accessible
 4. `validate(createEntitySchema)` → Validate request body
 5. Controller → Service → Repository
@@ -863,16 +903,85 @@ src/
 #### `GET /api/entities/:id/hierarchy`
 **Purpose**: Get full hierarchy tree from entity
 
+**Query Params**:
+- `depth` (optional): Maximum depth levels to load (default: unlimited)
+- `page` (optional): Page number (required if `paginateRootChildren=true`)
+- `limit` (optional): Items per page (required if `paginateRootChildren=true`, max: 100)
+- `paginateRootChildren` (optional): Enable pagination for root entity's direct children (boolean or string: "true"/"false"/"1"/"0")
+
 **Flow**:
 1. `authenticate` → Verify JWT
-2. `enforceEntityAccess()` → Validate entity access
-3. Service validates access
-4. Repository executes recursive CTE query
-5. Returns all descendants
+2. `requireReadPermission([MODULES.ENTITY])` → Check read permission
+3. `validateUUIDParams(["id"])` → Validate entity ID format
+4. `validateQuery(hierarchyQuerySchema)` → Validate query parameters
+5. `enforceEntityAccess()` → Validate entity access
+6. Service validates access
+7. Repository executes recursive CTE query or paginated query
+8. Returns hierarchy tree
+
+**Example Requests**:
+```bash
+# Full hierarchy (unlimited depth)
+GET /api/entities/entity-uuid/hierarchy
+
+# Limited depth (only direct children)
+GET /api/entities/entity-uuid/hierarchy?depth=1
+
+# Paginated root children (for large datasets)
+GET /api/entities/entity-uuid/hierarchy?paginateRootChildren=true&page=1&limit=20
+```
 
 ---
 
 ### User Endpoints
+
+#### `GET /api/users`
+**Purpose**: List users (filtered by accessible hierarchy)
+
+**Query Params**:
+- `page` (required): Page number (minimum: 1)
+- `limit` (required): Items per page (minimum: 1, maximum: 100)
+- `entityId` (optional): Filter by entity ID. Use `null` to get users from root entity
+
+**Middleware Chain**:
+1. `authenticate` → Verify JWT
+2. `requireReadPermission([MODULES.USER])` → Check read permission
+3. `validateQuery(userListQuerySchema)` → Validate query parameters
+4. `enforceEntityAccessQuery("entityId")` → Validate entity access
+5. Controller → Service → Repository
+
+**Example Request**:
+```bash
+GET /api/users?page=1&limit=10
+GET /api/users?page=1&limit=10&entityId=entity-uuid
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Users listed",
+  "data": [
+    {
+      "id": "user-uuid",
+      "email": "user@example.com",
+      "name": "John Doe",
+      "entity_id": "entity-uuid",
+      "role_id": "role-uuid"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 50,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "timestamp": 1234567890,
+  "path": "/api/users"
+}
+```
 
 #### `GET /api/users/:id`
 **Purpose**: Get user by ID (validates entity access)
@@ -900,7 +1009,7 @@ src/
 
 **Middleware**:
 - `authenticate`
-- `authorize([MODULES.USER])`
+- `requireWritePermission([MODULES.USER])` → Check write permission
 - `enforceEntityAccessQuery("entity_id")` → Validate entity access
 - `validate(createUserSchema)`
 
@@ -913,6 +1022,56 @@ src/
 ---
 
 ### Meter Endpoints
+
+#### `GET /api/meters`
+**Purpose**: List meters (filtered by accessible hierarchy)
+
+**Query Params**:
+- `page` (required): Page number (minimum: 1)
+- `limit` (required): Items per page (minimum: 1, maximum: 100)
+- `entityId` (optional): Filter by entity ID
+
+**Middleware Chain**:
+1. `authenticate` → Verify JWT
+2. `requireReadPermission([MODULES.METER])` → Check read permission
+3. `validateQuery(meterListQuerySchema)` → Validate query parameters
+4. `enforceEntityAccessQuery("entityId")` → Validate entity access
+5. Controller → Service → Repository
+
+**Example Request**:
+```bash
+GET /api/meters?page=1&limit=10
+GET /api/meters?page=1&limit=10&entityId=entity-uuid
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Meters listed successfully",
+  "data": [
+    {
+      "id": "meter-uuid",
+      "name": "Production Line A",
+      "meterType": "PHYSICAL",
+      "entityId": "entity-uuid",
+      "attributes": {
+        "location": "Building 1"
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 50,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "timestamp": 1234567890,
+  "path": "/api/meters"
+}
+```
 
 #### `GET /api/meters/:id`
 **Purpose**: Get meter by ID (validates entity access)
@@ -939,7 +1098,7 @@ src/
 
 **Middleware**:
 - `authenticate`
-- `authorize([MODULES.ENTITY])`
+- `requireWritePermission([MODULES.METER])` → Check write permission
 - `enforceEntityAccessQuery("entityId")` → Validate entity access
 - `validate(createMeterSchema)`
 
@@ -951,28 +1110,38 @@ src/
 **Purpose**: List profiles based on access level
 
 **Query Parameters**:
+- `page` (required): Page number (minimum: 1)
+- `limit` (required): Items per page (minimum: 1, maximum: 100)
 - `entityId` (optional): Filter by entity ID. Use `null` to get global profiles
 
 **Access Control**:
 - **Root Admin**: Can see all profiles (global + entity-scoped)
 - **Entity Admin**: Can see global profiles + profiles for accessible entities
 
+**Middleware Chain**:
+1. `authenticate` → Verify JWT
+2. `requireReadPermission([MODULES.PROFILE])` → Check read permission
+3. `validateQuery(profileListQuerySchema)` → Validate query parameters
+4. `enforceEntityAccessQuery("entityId")` → Validate entity access
+5. Controller → Service → Repository
+
 **Examples**:
 ```bash
-# Get all accessible profiles (default)
-GET /api/profiles
+# Get all accessible profiles
+GET /api/profiles?page=1&limit=10
 
 # Get global profiles only (root admin only)
-GET /api/profiles?entityId=null
+GET /api/profiles?page=1&limit=10&entityId=null
 
 # Get profiles for specific entity
-GET /api/profiles?entityId=entity-uuid
+GET /api/profiles?page=1&limit=10&entityId=entity-uuid
 ```
 
 **Response**:
 ```json
 {
   "success": true,
+  "message": "Profiles listed",
   "data": [
     {
       "id": "profile-uuid",
@@ -983,7 +1152,17 @@ GET /api/profiles?entityId=entity-uuid
       "creation_time": "2024-01-01T00:00:00Z",
       "last_update_on": "2024-01-01T00:00:00Z"
     }
-  ]
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 50,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "timestamp": 1234567890,
+  "path": "/api/profiles"
 }
 ```
 
@@ -1014,7 +1193,7 @@ GET /api/profiles?entityId=entity-uuid
 
 **Middleware**:
 - `authenticate`
-- `authorize([MODULES.PROFILE])`
+- `requireWritePermission([MODULES.PROFILE])` → Check write permission
 - `enforceEntityAccessQuery("entity_id")` → Validate entity access if provided
 - `validate(createProfileSchema)`
 
@@ -1036,17 +1215,98 @@ GET /api/profiles?entityId=entity-uuid
 
 ---
 
-### Module Endpoints ⭐ NEW
+### Role Endpoints
 
-#### `GET /api/modules`
-**Purpose**: List all system modules (Root Admin only)
+#### `GET /api/roles`
+**Purpose**: List roles (filtered by accessible hierarchy)
 
-**Access Control**: Root Admin only (modules define system capabilities)
+**Query Params**:
+- `page` (required): Page number (minimum: 1)
+- `limit` (required): Items per page (minimum: 1, maximum: 100)
+- `entityId` (optional): Filter by entity ID. Use `null` to get global roles
+
+**Access Control**:
+- **Root Admin**: Can see all roles (global + entity-scoped)
+- **Entity Admin**: Can see global roles + roles for accessible entities
+
+**Middleware Chain**:
+1. `authenticate` → Verify JWT
+2. `requireReadPermission([MODULES.ROLE])` → Check read permission
+3. `validateQuery(roleListQuerySchema)` → Validate query parameters
+4. `enforceEntityAccessQuery("entityId")` → Validate entity access
+5. Controller → Service → Repository
+
+**Example Request**:
+```bash
+GET /api/roles?page=1&limit=10
+GET /api/roles?page=1&limit=10&entityId=null
+GET /api/roles?page=1&limit=10&entityId=entity-uuid
+```
 
 **Response**:
 ```json
 {
   "success": true,
+  "message": "Roles listed",
+  "data": [
+    {
+      "id": "role-uuid",
+      "name": "Tenant Admin",
+      "entity_id": "entity-uuid",
+      "attributes": {
+        "permissions": [
+          {
+            "moduleId": "module-uuid",
+            "name": "Entity",
+            "read": true,
+            "write": true
+          }
+        ]
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 50,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "timestamp": 1234567890,
+  "path": "/api/roles"
+}
+```
+
+---
+
+### Module Endpoints ⭐ NEW
+
+#### `GET /api/modules`
+**Purpose**: List all system modules (Root Admin only)
+
+**Query Params**:
+- `page` (required): Page number (minimum: 1)
+- `limit` (required): Items per page (minimum: 1, maximum: 100)
+
+**Access Control**: Root Admin only (modules define system capabilities)
+
+**Middleware Chain**:
+1. `authenticate` → Verify JWT
+2. `requireReadPermission([MODULES.MODULE])` → Check read permission
+3. `validateQuery(moduleListQuerySchema)` → Validate query parameters
+4. Controller → Service → Repository
+
+**Example Request**:
+```bash
+GET /api/modules?page=1&limit=10
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Modules listed",
   "data": [
     {
       "id": "module-uuid",
@@ -1058,9 +1318,21 @@ GET /api/profiles?entityId=entity-uuid
     {
       "id": "module-uuid-2",
       "name": "User",
-      ...
+      "created_by": "admin-uuid",
+      "creation_time": "2024-01-01T00:00:00Z",
+      "last_update_on": "2024-01-01T00:00:00Z"
     }
-  ]
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 6,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  },
+  "timestamp": 1234567890,
+  "path": "/api/modules"
 }
 ```
 
@@ -1086,7 +1358,7 @@ GET /api/profiles?entityId=entity-uuid
 
 **Middleware**:
 - `authenticate`
-- `authorize([MODULES.MODULE])`
+- `requireWritePermission([MODULES.MODULE])` → Check write permission
 - `validate(createModuleSchema)`
 
 **Note**: Service layer enforces root admin check (throws 403 if not root admin)

@@ -82,7 +82,7 @@ The hierarchy middleware:
 ```typescript
 router.get("/:id", 
   authenticate, 
-  authorizeRead([MODULES.ENTITY]), 
+  requireReadPermission([MODULES.ENTITY]), 
   enforceEntityAccess(),  // ✅ Validates entity ID in :id param
   entityController.getById
 )
@@ -121,7 +121,7 @@ router.get("/:id",
 ```typescript
 router.post("/", 
   authenticate, 
-  authorize([MODULES.USER]), 
+  requireWritePermission([MODULES.USER]), 
   enforceEntityAccessQuery("entity_id"),  // ✅ Validates entity_id in query/body
   validate(createUserSchema),
   userController.create
@@ -155,7 +155,7 @@ router.post("/",
 ```typescript
 router.post("/", 
   authenticate, 
-  authorize([MODULES.ENTITY]), 
+  requireWritePermission([MODULES.ENTITY]), 
   validateParentEntityAccess(),  // ✅ Validates parent entity in body
   validate(createEntitySchema),
   entityController.create
@@ -204,7 +204,7 @@ router.post("/",
 ```typescript
 router.get("/:id", 
   authenticate, 
-  authorizeRead([MODULES.USER]), 
+  requireReadPermission([MODULES.USER]), 
   enforceResourceEntityAccess("user"),  // ✅ Fetches user, validates user.entity_id
   userController.getById
 )
@@ -349,7 +349,7 @@ Authorization: Bearer <token>
 ```typescript
 router.post("/", 
   authenticate,                    // ✅ Step 1: Verify JWT token
-  authorize([MODULES.USER]),      // ✅ Step 2: Check write permission
+  requireWritePermission([MODULES.USER]),      // ✅ Step 2: Check write permission
   enforceEntityAccessQuery("entity_id"), // ✅ Step 3: Validate entity access
   validate(createUserSchema),     // ✅ Step 4: Validate body
   userController.create           // ✅ Step 5: Execute controller
@@ -418,7 +418,7 @@ Authorization: Bearer <token>
 ```typescript
 router.get("/:id", 
   authenticate, 
-  authorizeRead([MODULES.USER]), 
+  requireReadPermission([MODULES.USER]), 
   enforceResourceEntityAccess("user"),  // ✅ Fetches user, validates user.entity_id
   userController.getById
 )
@@ -454,7 +454,7 @@ Authorization: Bearer <token>
 ```typescript
 router.post("/", 
   authenticate, 
-  authorize([MODULES.ENTITY]), 
+  requireWritePermission([MODULES.ENTITY]), 
   validateParentEntityAccess(),  // ✅ Validates parent entity
   validate(createEntitySchema),
   entityController.create
@@ -615,7 +615,7 @@ router.get("/:id",
 // Create entity (validates parent entity access)
 router.post("/", 
   authenticate, 
-  authorize([MODULES.ENTITY]), 
+  requireWritePermission([MODULES.ENTITY]), 
   validateParentEntityAccess(),  // ✅ Validates parent entity in body
   validate(createEntitySchema),
   entityController.create
@@ -624,7 +624,7 @@ router.post("/",
 // Update entity (validates entity access)
 router.patch("/:id", 
   authenticate, 
-  authorize([MODULES.ENTITY]), 
+  requireWritePermission([MODULES.ENTITY]), 
   validateUUIDParams(["id"]),
   enforceEntityAccess(),  // ✅ Validates entity ID in :id param
   validate(updateEntitySchema),
@@ -634,7 +634,7 @@ router.patch("/:id",
 // Delete entity (validates entity access)
 router.delete("/:id", 
   authenticate, 
-  authorize([MODULES.ENTITY]), 
+  requireWritePermission([MODULES.ENTITY]), 
   validateUUIDParams(["id"]),
   enforceEntityAccess(),  // ✅ Validates entity ID in :id param
   entityController.remove
@@ -647,14 +647,14 @@ router.delete("/:id",
 // List users (no hierarchy check - handled in service)
 router.get("/", 
   authenticate, 
-  authorizeRead([MODULES.USER]), 
+  requireReadPermission([MODULES.USER]), 
   userController.list
 )
 
 // Get user by ID (validates user's entity)
 router.get("/:id", 
   authenticate, 
-  authorizeRead([MODULES.USER]), 
+  requireReadPermission([MODULES.USER]), 
   validateUUIDParams(["id"]),
   enforceResourceEntityAccess("user"),  // ✅ Fetches user, validates user.entity_id
   userController.getById
@@ -663,7 +663,7 @@ router.get("/:id",
 // Create user (validates target entity)
 router.post("/", 
   authenticate, 
-  authorize([MODULES.USER]), 
+  requireWritePermission([MODULES.USER]), 
   enforceEntityAccessQuery("entity_id"),  // ✅ Validates entity_id in query/body
   validate(createUserSchema),
   userController.create
@@ -729,7 +729,7 @@ router.get("/:id",
 // Create meter (validates target entity)
 router.post("/", 
   authenticate, 
-  authorize([MODULES.ENTITY]), 
+  requireWritePermission([MODULES.ENTITY]), 
   enforceEntityAccessQuery("entityId"),  // ✅ Validates entityId in query/body
   validate(createMeterSchema),
   meterController.create

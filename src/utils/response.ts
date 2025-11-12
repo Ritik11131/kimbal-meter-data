@@ -1,15 +1,31 @@
-import { ApiResponse, PaginatedResponse } from "../types/common";
+import { ApiResponse, PaginatedResponse, PaginatedApiResponse, PaginationMeta } from "../types/common";
 import { Response } from "express";
 
-export const sendResponse = <T>(
-  res: Response,
-  statusCode: number,
-  data: T | null,
-  message: string,
-  path?: string
-): Response => {
-  // Check if data is a PaginatedResponse (has data, total, page, limit, totalPages)
-  const isPaginated = (
+/**
+ * Helper function to create pagination metadata
+ * Calculates additional useful fields like hasNextPage and hasPreviousPage
+ */
+const createPaginationMeta = (
+  page: number,
+  limit: number,
+  total: number,
+  totalPages: number
+): PaginationMeta => {
+  return {
+    page,
+    limit,
+    total,
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPreviousPage: page > 1,
+  };
+};
+
+/**
+ * Check if data is a PaginatedResponse
+ */
+const isPaginatedResponse = (data: any): data is PaginatedResponse<any> => {
+  return (
     data !== null &&
     typeof data === "object" &&
     "data" in data &&
@@ -17,23 +33,41 @@ export const sendResponse = <T>(
     "page" in data &&
     "limit" in data &&
     "totalPages" in data &&
-    Array.isArray((data as any).data)
+    Array.isArray(data.data)
   );
+};
 
-  if (isPaginated) {
-    // Handle paginated response: spread pagination fields at top level
-    const paginatedData = data as unknown as PaginatedResponse<any>;
-    const response = {
+/**
+ * Send API response with optimized structure
+ * - Paginated responses: Groups pagination metadata in a dedicated object
+ * - Standard responses: Simple structure with data
+ */
+export const sendResponse = <T>(
+  res: Response,
+  statusCode: number,
+  data: T | null,
+  message: string,
+  path?: string
+): Response => {
+  // Handle paginated responses with optimized structure
+  if (isPaginatedResponse(data)) {
+    const paginatedData = data as PaginatedResponse<any>;
+    const paginationMeta = createPaginationMeta(
+      paginatedData.page,
+      paginatedData.limit,
+      paginatedData.total,
+      paginatedData.totalPages
+    );
+
+    const response: PaginatedApiResponse<any> = {
       success: statusCode >= 200 && statusCode < 300,
-      data: paginatedData.data, // Array directly, no nesting
-      total: paginatedData.total,
-      page: paginatedData.page,
-      limit: paginatedData.limit,
-      totalPages: paginatedData.totalPages,
       message,
+      data: paginatedData.data,
+      pagination: paginationMeta,
       timestamp: Date.now(),
       path,
     };
+
     return res.status(statusCode).json(response);
   }
 

@@ -3,6 +3,9 @@ import { sendError } from "../utils/response"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
 
+/**
+ * Custom application error class
+ */
 export class AppError extends Error {
   constructor(
     public message: string,
@@ -13,6 +16,14 @@ export class AppError extends Error {
   }
 }
 
+/**
+ * Global error handler middleware
+ * Handles all errors and sends appropriate error responses
+ * @param error - Error object
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function
+ */
 export const errorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
   logger.error("Error:", error)
 

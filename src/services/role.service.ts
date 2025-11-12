@@ -12,19 +12,31 @@ export const createRoleService = () => {
   const roleRepository = createRoleRepository()
   const userRepository = createUserRepository()
 
+  /**
+   * Retrieves a role by ID and validates access
+   * @param id - Role ID
+   * @param user - Authenticated user context
+   * @returns Role object
+   */
   const getRoleById = async (id: string, user: AuthContext): Promise<Role> => {
     const role = await roleRepository.findById(id)
     if (!role) {
       throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
     }
-    // Validate access if role is entity-scoped (entity_id is not null)
     if (role.entity_id) {
       await validateEntityAccess(user.entityId, role.entity_id, "role")
     }
-    // Global roles (entity_id = null) are accessible to all authenticated users
     return role
   }
 
+  /**
+   * Creates a new role
+   * @param name - Role name
+   * @param permissions - Array of permission objects
+   * @param entityId - Optional entity ID for entity-scoped role
+   * @param user - Authenticated user context
+   * @returns Created role
+   */
   const createRole = async (
     name: string,
     permissions: Array<{
@@ -37,7 +49,6 @@ export const createRoleService = () => {
     user: AuthContext,
   ): Promise<Role> => {
     try {
-      // Validate access if creating entity-scoped role
       if (entityId) {
         await validateEntityAccess(user.entityId, entityId, "roles")
       }
@@ -50,6 +61,14 @@ export const createRoleService = () => {
     }
   }
 
+  /**
+   * Updates an existing role
+   * @param id - Role ID
+   * @param user - Authenticated user context
+   * @param name - Optional role name
+   * @param permissions - Optional permissions array
+   * @returns Updated role
+   */
   const updateRole = async (
     id: string,
     user: AuthContext,
@@ -81,6 +100,14 @@ export const createRoleService = () => {
     }
   }
 
+  /**
+   * Lists roles with pagination and optional entity filter
+   * @param entityId - Optional entity ID filter
+   * @param user - Authenticated user context
+   * @param page - Page number
+   * @param limit - Items per page
+   * @returns Paginated role list
+   */
   const listRolesByEntity = async (
     entityId: string | null,
     user: AuthContext,
@@ -90,8 +117,6 @@ export const createRoleService = () => {
     try {
       let accessibleEntityIds: string[] | undefined
 
-      // If entityId is provided, list roles for that entity
-      // Note: Access validation is handled by enforceEntityAccessQuery middleware
       if (entityId) {
         const { data, total } = await roleRepository.paginateRoles(page, limit, entityId)
         return {
@@ -102,8 +127,6 @@ export const createRoleService = () => {
           totalPages: Math.ceil(total / limit),
         }
       } else {
-        // List all accessible roles (global + entity-scoped)
-        // For non-root users, get accessible entity IDs
         const isRoot = await isRootAdmin(user.entityId)
         if (!isRoot) {
           accessibleEntityIds = await getAccessibleEntityIds(user.entityId)
@@ -124,11 +147,15 @@ export const createRoleService = () => {
     }
   }
 
+  /**
+   * Deletes a role
+   * @param id - Role ID
+   * @param user - Authenticated user context
+   */
   const deleteRole = async (id: string, user: AuthContext): Promise<void> => {
     try {
       await getRoleById(id, user)
       
-      // Check if role is assigned to any users
       const usersWithRole = await userRepository.findByRoleId(id)
       if (usersWithRole.length > 0) {
         throw new AppError(

@@ -39,7 +39,8 @@ export const enforceEntityAccess = (entityIdParam: string = "id") => {
 }
 
 /**
- * Middleware to enforce entity access for query parameters or body (e.g., ?entityId=xxx or body.entityId)
+ * Middleware to enforce entity access for query parameters or body
+ * @param paramName - Name of the query/body parameter containing entity ID (default: "entityId")
  */
 export const enforceEntityAccessQuery = (paramName: string = "entityId") => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -50,29 +51,20 @@ export const enforceEntityAccessQuery = (paramName: string = "entityId") => {
 
       const targetEntityId = (req.query[paramName] as string) || req.body[paramName] || req.body[paramName.toLowerCase()]
       
-      // Skip validation if no entityId, empty string, or "null"/"undefined" string (null means list all/global)
       if (!targetEntityId || targetEntityId === "" || targetEntityId === "null" || targetEntityId === "undefined") {
-        return next() // No entity ID to validate, continue (service layer will handle null case)
+        return next()
       }
 
       const user = req.user as AuthContext
-      // Determine resource type from request path for better error messages
-      // Extract resource type from path like /api/users, /api/meters, etc.
-      
-      // Try to get the full path - check baseUrl first (for mounted routes), then originalUrl, then path
-      // For routes like router.use("/users", userRoutes), baseUrl will be "/users"
       const fullPath = (req.baseUrl || "") + (req.path || "") || req.originalUrl || ""
       const pathParts = fullPath.split("/").filter(Boolean)
       
-      // Find the resource name in the path and map it to resource type
       const { RESOURCE_TYPE_MAP } = await import("../config/constants")
-      let resourceType = "Entities" // default (capitalized for proper error message)
+      let resourceType = "Entities"
       for (const part of pathParts) {
         const normalizedPart = part.toLowerCase()
-        // Skip common path parts like "api"
         if (normalizedPart === "api") continue
         
-        // Check if this path part maps to a resource type
         if (RESOURCE_TYPE_MAP[normalizedPart]) {
           resourceType = RESOURCE_TYPE_MAP[normalizedPart]
           break
@@ -96,6 +88,7 @@ export const enforceEntityAccessQuery = (paramName: string = "entityId") => {
 
 /**
  * Middleware to validate that a parent entity is accessible when creating child entities
+ * Validates entity_id in request body before allowing entity creation
  */
 export const validateParentEntityAccess = () => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -147,7 +140,6 @@ export const enforceResourceEntityAccess = (resourceType: "user" | "role" | "pro
       const user = req.user as AuthContext
       let targetEntityId: string | null | undefined
 
-      // Fetch resource and extract entity_id based on resource type
       switch (resourceType) {
         case "user": {
           const { createUserRepository } = await import("../repositories/user.repository")
@@ -166,7 +158,6 @@ export const enforceResourceEntityAccess = (resourceType: "user" | "role" | "pro
           if (!resource) {
             throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
           }
-          // Global roles (entity_id = null) are accessible to all
           if (resource.entity_id === null) {
             return next()
           }
@@ -180,7 +171,6 @@ export const enforceResourceEntityAccess = (resourceType: "user" | "role" | "pro
           if (!resource) {
             throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
           }
-          // Global profiles (entity_id = null) - only root admin can access
           if (resource.entity_id === null) {
             const { isRootAdmin } = await import("../utils/rootAdmin")
             const isRoot = await isRootAdmin(user.entityId)
@@ -204,7 +194,6 @@ export const enforceResourceEntityAccess = (resourceType: "user" | "role" | "pro
         }
       }
 
-      // Validate entity access
       if (targetEntityId) {
         await validateEntityAccess(user.entityId, targetEntityId, resourceType)
       }
@@ -223,8 +212,9 @@ export const enforceResourceEntityAccess = (resourceType: "user" | "role" | "pro
 }
 
 /**
- * Helper to get hierarchy-scoped where clause for Sequelize queries
- * Returns a where condition that filters entities to only those accessible by user's entity
+ * Gets hierarchy-scoped where clause for Sequelize queries
+ * @param userEntityId - User's entity ID
+ * @returns Where condition object for filtering accessible entities
  */
 export const getHierarchyScope = async (userEntityId: string) => {
   const accessibleIds = await getAccessibleEntityIds(userEntityId)
