@@ -20,7 +20,7 @@ export const envConfig = {
   BCRYPT_ROUNDS: Number.parseInt(process.env.BCRYPT_ROUNDS || "10", 10),
 
   // CORS
-  CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:3000",
+  CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
 }
 
 // Validation

@@ -3,6 +3,7 @@ import { JwtUtil } from "../utils/jwt"
 import type { CreateUserDTO, LoginDTO, AuthResponse, UserWithoutPassword } from "../types/users"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
+import { envConfig } from "../config/environment"
 import logger from "../utils/logger"
 import { createUserRepository } from "../repositories/user.repository"
 import { createRoleRepository } from "../repositories/role.repository"
@@ -46,7 +47,7 @@ export const createAuthService = () => {
       return {
         user: userWithoutPassword as UserWithoutPassword,
         token,
-        expiresIn: "24h",
+        expiresIn: envConfig.JWT_EXPIRES_IN,
       }
     } catch (error) {
       logger.error("Registration error:", error)
@@ -98,7 +99,7 @@ export const createAuthService = () => {
       return {
         user: userWithoutPassword as UserWithoutPassword,
         token,
-        expiresIn: "24h",
+        expiresIn: envConfig.JWT_EXPIRES_IN,
       }
     } catch (error) {
       logger.error("Login error:", error)
