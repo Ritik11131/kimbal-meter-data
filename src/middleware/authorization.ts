@@ -35,7 +35,6 @@ export const requireWritePermission = (modules: string[]) => {
 
 /**
  * Middleware to require READ permission for a module
- * Allows users with either read OR write permission
  * Used for GET operations
  * 
  * @param modules - Array of module names that require read permission
@@ -53,7 +52,7 @@ export const requireReadPermission = (modules: string[]) => {
 
     const hasPermission = modules.some((module) => {
       const permission = req.user!.permissions.find((p) => p.name === module)
-      return permission && (permission.read || permission.write)
+      return permission && permission.read
     })
 
     if (!hasPermission) {
