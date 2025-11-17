@@ -33,6 +33,7 @@ export interface UpdateUserDTO {
   mobile_no?: string
   name?: string
   is_active?: boolean
+  attributes?: Record<string, any> | null
 }
 
 export interface LoginDTO {

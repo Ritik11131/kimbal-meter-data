@@ -20,6 +20,7 @@ export const updateUserSchema = Joi.object({
   mobile_no: Joi.string().min(10).max(15).optional(),
   name: Joi.string().min(2).max(255).optional(),
   is_active: Joi.boolean().optional(),
+  attributes: Joi.object().optional().allow(null),
 }).required()
 
 export const changePasswordSchema = Joi.object({

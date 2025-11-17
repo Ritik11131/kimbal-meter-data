@@ -71,11 +71,23 @@ export const createUserRepository = () => {
     const userInstance = await User.findByPk(id)
     if (!userInstance) return null
 
-    const updateData: Partial<UpdateUserDTO> = {}
-     if (data.email !== undefined) updateData.email = data.email
+    const updateData: any = {}
+    if (data.email !== undefined) updateData.email = data.email
     if (data.mobile_no !== undefined) updateData.mobile_no = data.mobile_no
     if (data.name !== undefined) updateData.name = data.name
     if (data.is_active !== undefined) updateData.is_active = data.is_active
+    
+    // Handle attributes: merge with existing attributes if provided
+    if (data.attributes !== undefined) {
+      if (data.attributes === null) {
+        // Explicitly set to null if null is provided
+        updateData.attributes = null
+      } else {
+        // Merge with existing attributes
+        const existingAttributes = (userInstance.get() as UserType).attributes || {}
+        updateData.attributes = { ...existingAttributes, ...data.attributes }
+      }
+    }
 
     await userInstance.update(updateData)
     return userInstance.get() as UserType
