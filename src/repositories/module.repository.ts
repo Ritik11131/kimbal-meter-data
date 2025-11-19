@@ -1,6 +1,8 @@
 import { createBaseRepository } from "./base.repository"
 import { Module } from "../models/Module"
 import type { Module as ModuleType, CreateModuleDTO, UpdateModuleDTO } from "../types/entities"
+import { Op } from "sequelize"
+import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createModuleRepository = () => {
   const baseRepo = createBaseRepository(Module)
@@ -51,13 +53,24 @@ export const createModuleRepository = () => {
    * Paginates modules
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated module data
    */
   const paginateModules = async (
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: ModuleType[]; total: number }> => {
-    return baseRepo.paginate(page, limit, {})
+    const where: any = {}
+    
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name"])
+    if (hasSearchCondition(searchCondition)) {
+      // Module repository has no existing conditions, so just use search directly
+      Object.assign(where, searchCondition)
+    }
+    
+    return baseRepo.paginate(page, limit, where)
   }
 
   return {

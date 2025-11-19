@@ -52,14 +52,14 @@ export const update = async (req: Request, res: Response) => {
 
 /**
  * Lists meters with pagination and optional entity filter
- * @param req - Express request object containing query parameters (page, limit, entityId)
+ * @param req - Express request object containing query parameters (page, limit, entityId, search)
  * @param res - Express response object
  */
 export const list = async (req: Request, res: Response) => {
   try {
-    const { page, limit, entityId } = extractListQueryParams(req)
+    const { page, limit, entityId, search } = extractListQueryParams(req)
     
-    const result = await meterService.listMeters(entityId, req.user!, page, limit)
+    const result = await meterService.listMeters(entityId, req.user!, page, limit, search)
     sendResponse(res, HTTP_STATUS.OK, result, "Meters listed successfully", req.path)
   } catch (error: any) {
     sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)

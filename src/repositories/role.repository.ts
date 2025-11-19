@@ -3,6 +3,7 @@ import { Role } from "../models/Role"
 import type { Role as RoleType } from "../types/entities"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
+import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createRoleRepository = () => {
   const baseRepo = createBaseRepository(Role)
@@ -116,7 +117,8 @@ export const createRoleRepository = () => {
     page = 1,
     limit = 10,
     entityId?: string | null,
-    accessibleEntityIds?: string[]
+    accessibleEntityIds?: string[],
+    search?: string
   ): Promise<{ data: RoleType[]; total: number }> => {
     const where: any = {}
     
@@ -135,6 +137,23 @@ export const createRoleRepository = () => {
       }
     }
     // If accessibleEntityIds is undefined, it means root admin - no filter (show all)
+    
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name"])
+    if (hasSearchCondition(searchCondition)) {
+      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
+      if (existingKeys.length > 0) {
+        // Combine existing conditions with search using AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        for (const key of existingKeys) {
+          delete where[key]
+        }
+      } else {
+        // No existing conditions, just use search condition directly
+        Object.assign(where, searchCondition)
+      }
+    }
     
     const { data, total } = await baseRepo.paginate(page, limit, where)
     

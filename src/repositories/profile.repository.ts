@@ -3,6 +3,7 @@ import { Profile } from "../models/Profile"
 import type { Profile as ProfileType, CreateProfileDTO, UpdateProfileDTO } from "../types/entities"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
+import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createProfileRepository = () => {
   const baseRepo = createBaseRepository(Profile)
@@ -91,13 +92,15 @@ export const createProfileRepository = () => {
    * @param limit - Items per page
    * @param entityId - Optional entity ID filter
    * @param accessibleEntityIds - Optional hierarchy filter
+   * @param search - Optional search term
    * @returns Paginated profile data
    */
   const paginateProfiles = async (
     page = 1,
     limit = 10,
     entityId?: string | null,
-    accessibleEntityIds?: string[]
+    accessibleEntityIds?: string[],
+    search?: string
   ): Promise<{ data: ProfileType[]; total: number }> => {
     const where: any = {}
     
@@ -110,6 +113,23 @@ export const createProfileRepository = () => {
         }
       } else {
         where.id = { [Op.in]: [] }
+      }
+    }
+    
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name"])
+    if (hasSearchCondition(searchCondition)) {
+      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
+      if (existingKeys.length > 0) {
+        // Combine existing conditions with search using AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        for (const key of existingKeys) {
+          delete where[key]
+        }
+      } else {
+        // No existing conditions, just use search condition directly
+        Object.assign(where, searchCondition)
       }
     }
     

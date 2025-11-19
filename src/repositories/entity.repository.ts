@@ -5,6 +5,7 @@ import { getSequelize } from "../database/connection"
 import logger from "../utils/logger"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
+import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createEntityRepository = () => {
   const baseRepo = createBaseRepository(Entity)
@@ -93,13 +94,26 @@ export const createEntityRepository = () => {
    * @param entityId - Entity ID
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated children data
    */
-  const findDirectChildren = async (entityId: string, page = 1, limit = 10) => {
+  const findDirectChildren = async (entityId: string, page = 1, limit = 10, search?: string) => {
     try {
       const offset = (page - 1) * limit
+      const where: any = { entity_id: entityId }
+      
+      // Add search condition
+      const searchCondition = buildSearchCondition(search, ["name", "email_id", "mobile_no"])
+      if (hasSearchCondition(searchCondition)) {
+        // For findDirectChildren, we always have entity_id condition, so combine with AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        // Remove entity_id since it's now in Op.and
+        delete where.entity_id
+      }
+      
       const { count, rows } = await Entity.findAndCountAll({
-        where: { entity_id: entityId },
+        where,
         offset,
         limit,
         order: [["creation_time", "DESC"]],
@@ -156,9 +170,10 @@ export const createEntityRepository = () => {
    * @param profileId - Optional profile filter
    * @param accessibleEntityIds - Optional hierarchy filter
    * @param parentEntityId - Optional parent entity filter
+   * @param search - Optional search term
    * @returns Paginated entity data with plain objects
    */
-  const paginateEntities = async (page = 1, limit = 10, profileId?: string, accessibleEntityIds?: string[], parentEntityId?: string | null) => {
+  const paginateEntities = async (page = 1, limit = 10, profileId?: string, accessibleEntityIds?: string[], parentEntityId?: string | null, search?: string) => {
     const where: any = {}
     
     if (profileId && profileId.trim() !== "") {
@@ -178,6 +193,24 @@ export const createEntityRepository = () => {
         // Root admin - no filter
       } else {
         where.id = { [Op.in]: [] }
+      }
+    }
+
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name", "email_id", "mobile_no"])
+    if (hasSearchCondition(searchCondition)) {
+      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
+      if (existingKeys.length > 0) {
+        // Combine existing conditions with search using AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        // Remove individual conditions that are now in Op.and
+        for (const key of existingKeys) {
+          delete where[key]
+        }
+      } else {
+        // No existing conditions, just use search condition directly
+        Object.assign(where, searchCondition)
       }
     }
 

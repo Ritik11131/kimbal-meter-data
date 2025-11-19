@@ -31,6 +31,14 @@ const paginationSchema = {
       "number.max": `limit must be at most ${QUERY_VALIDATION.PAGINATION.MAX_LIMIT}`,
       "any.required": "limit is required",
     }),
+  search: Joi.string()
+    .optional()
+    .allow("")
+    .max(255)
+    .messages({
+      "string.base": "search must be a string",
+      "string.max": "search must be at most 255 characters",
+    }),
 } as const
 
 /**
@@ -87,6 +95,14 @@ export const hierarchyQuerySchema = Joi.object({
       Joi.string().valid(...QUERY_VALIDATION.BOOLEAN_TRUE_VALUES, ...QUERY_VALIDATION.BOOLEAN_FALSE_VALUES)
     )
     .optional(),
+  search: Joi.string()
+    .optional()
+    .allow("")
+    .max(255)
+    .messages({
+      "string.base": "search must be a string",
+      "string.max": "search must be at most 255 characters",
+    }),
 })
 
 /**

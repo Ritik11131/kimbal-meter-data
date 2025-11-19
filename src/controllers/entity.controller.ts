@@ -38,6 +38,7 @@ export const getHierarchy = async (req: Request, res: Response) => {
     const page = extracted.page as number | undefined
     const limit = extracted.limit as number | undefined
     const paginateRootChildren = extracted.paginateRootChildren as boolean | undefined
+    const search = extracted.search as string | undefined
     
     if (paginateRootChildren) {
       if (!page || page < 1) {
@@ -53,6 +54,7 @@ export const getHierarchy = async (req: Request, res: Response) => {
       page,
       limit,
       paginateRootChildren: paginateRootChildren || false,
+      search,
     }
     
     const hierarchy = await entityService.getEntityHierarchy(req.params.id, req.user!, options)
@@ -106,17 +108,17 @@ export const remove = async (req: Request, res: Response) => {
 
 /**
  * Lists entities with pagination and optional filters
- * @param req - Express request object containing query parameters (page, limit, entityId, profileId)
+ * @param req - Express request object containing query parameters (page, limit, entityId, profileId, search)
  * @param res - Express response object
  */
 export const list = async (req: Request, res: Response) => {
   try {
-    const { page, limit, entityId, profileId } = extractQueryParams(req, {
+    const { page, limit, entityId, profileId, search } = extractQueryParams(req, {
       includeEntityId: true,
       customFields: ['profileId'],
     })
 
-    const result = await entityService.listEntities(page, limit, profileId, entityId, req.user!)
+    const result = await entityService.listEntities(page, limit, profileId, entityId, req.user!, search)
     sendResponse(res, HTTP_STATUS.OK, result, "Entities listed successfully", req.path)
   } catch (error: any) {
     sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)

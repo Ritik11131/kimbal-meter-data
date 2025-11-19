@@ -90,6 +90,7 @@ export interface ExtractedQueryParams {
   page?: number
   limit?: number
   entityId?: string | null
+  search?: string
   [key: string]: any // For custom fields
 }
 

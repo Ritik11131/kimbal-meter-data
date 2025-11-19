@@ -3,6 +3,7 @@ import { Meter } from "../models/Meter" // Your Sequelize Meter model class
 import type { Meter as MeterType } from "../types/entities" // Meter interface/type if any
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
+import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createMeterRepository = () => {
   const baseRepo = createBaseRepository(Meter)
@@ -17,9 +18,29 @@ export const createMeterRepository = () => {
   const paginateByEntityId = async (
     entityId: string,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: MeterType[]; total: number }> => {
-    return baseRepo.paginate(page, limit, { entity_id: entityId })
+    const where: any = { entity_id: entityId }
+    
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name"])
+    if (hasSearchCondition(searchCondition)) {
+      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
+      if (existingKeys.length > 0) {
+        // Combine existing conditions with search using AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        for (const key of existingKeys) {
+          delete where[key]
+        }
+      } else {
+        // No existing conditions, just use search condition directly
+        Object.assign(where, searchCondition)
+      }
+    }
+    
+    return baseRepo.paginate(page, limit, where)
   }
 
   const findByMeterType = async (meterType: string): Promise<MeterType[]> => {
@@ -79,7 +100,8 @@ export const createMeterRepository = () => {
   const paginateByAccessibleEntities = async (
     accessibleEntityIds: string[],
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: MeterType[]; total: number }> => {
     const where: any = {}
     
@@ -89,6 +111,23 @@ export const createMeterRepository = () => {
       }
     } else {
       where.id = { [Op.in]: [] }
+    }
+    
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name"])
+    if (hasSearchCondition(searchCondition)) {
+      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
+      if (existingKeys.length > 0) {
+        // Combine existing conditions with search using AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        for (const key of existingKeys) {
+          delete where[key]
+        }
+      } else {
+        // No existing conditions, just use search condition directly
+        Object.assign(where, searchCondition)
+      }
     }
     
     return baseRepo.paginate(page, limit, where)

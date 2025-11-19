@@ -112,7 +112,7 @@ export const createEntityService = () => {
   const getEntityHierarchy = async (
     entityId: string, 
     user: AuthContext,
-    options?: { depth?: number; page?: number; limit?: number; paginateRootChildren?: boolean }
+    options?: { depth?: number; page?: number; limit?: number; paginateRootChildren?: boolean; search?: string }
   ): Promise<EntityTree & { totalChildren?: number; page?: number; limit?: number; totalPages?: number }> => {
     try {
       await validateEntityAccess(user.entityId, entityId);
@@ -128,7 +128,8 @@ export const createEntityService = () => {
           throw new AppError('Entity not found', HTTP_STATUS.NOT_FOUND);
         }
         
-        const { data: children, total } = await entityRepository.findDirectChildren(entityId, page, limit);
+        const search = options?.search;
+        const { data: children, total } = await entityRepository.findDirectChildren(entityId, page, limit, search);
         
         const tree: EntityTree & { totalChildren: number; page: number; limit: number; totalPages: number } = {
           ...rootEntity,
@@ -243,12 +244,13 @@ export const createEntityService = () => {
    * @param profileId - Optional profile filter
    * @param entityId - Optional entity filter (for listing children)
    * @param user - Authenticated user context
+   * @param search - Optional search term
    * @returns Paginated entity list
    */
-  const listEntities = async (page = 1, limit = 10, profileId?: string, entityId?: string | null, user?: AuthContext) => {
+  const listEntities = async (page = 1, limit = 10, profileId?: string, entityId?: string | null, user?: AuthContext, search?: string) => {
     try {
       if (entityId !== null && entityId !== undefined) {
-        const { data, total } = await entityRepository.paginateEntities(page, limit, profileId, undefined, entityId);
+        const { data, total } = await entityRepository.paginateEntities(page, limit, profileId, undefined, entityId, search);
         return {
           data,
           total,
@@ -270,7 +272,7 @@ export const createEntityService = () => {
         }
       }
 
-      const { data, total } = await entityRepository.paginateEntities(page, limit, profileId, accessibleEntityIds, undefined);
+      const { data, total } = await entityRepository.paginateEntities(page, limit, profileId, accessibleEntityIds, undefined, search);
       
       return {
         data,

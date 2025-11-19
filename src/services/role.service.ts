@@ -106,19 +106,21 @@ export const createRoleService = () => {
    * @param user - Authenticated user context
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated role list
    */
   const listRolesByEntity = async (
     entityId: string | null,
     user: AuthContext,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: Role[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
       let accessibleEntityIds: string[] | undefined
 
       if (entityId) {
-        const { data, total } = await roleRepository.paginateRoles(page, limit, entityId)
+        const { data, total } = await roleRepository.paginateRoles(page, limit, entityId, undefined, search)
         return {
           data,
           total,
@@ -131,7 +133,7 @@ export const createRoleService = () => {
         if (!isRoot) {
           accessibleEntityIds = await getAccessibleEntityIds(user.entityId)
         }
-        const { data, total } = await roleRepository.paginateRoles(page, limit, null, accessibleEntityIds)
+        const { data, total } = await roleRepository.paginateRoles(page, limit, null, accessibleEntityIds, search)
         return {
           data,
           total,

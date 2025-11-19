@@ -58,6 +58,11 @@ export const extractQueryParams = (
       : undefined
   }
 
+  // Extract search parameter
+  if (typeof req.query.search === 'string') {
+    result.search = req.query.search.trim() || undefined
+  }
+
   // Extract custom fields
   for (const field of customFields) {
     const value = req.query[field]
@@ -85,39 +90,41 @@ export const extractQueryParams = (
  * @param req - Express request object
  * @param defaultPage - Default page value (default: 1)
  * @param defaultLimit - Default limit value (default: 10)
- * @returns Object with page and limit
+ * @returns Object with page, limit, and optional search
  */
 export const extractPaginationParams = (
   req: Request,
   defaultPage: number = 1,
   defaultLimit: number = 10
-): { page: number; limit: number } => {
+): { page: number; limit: number; search?: string } => {
   return {
     page: typeof req.query.page === 'number' ? req.query.page : defaultPage,
     limit: typeof req.query.limit === 'number' ? req.query.limit : defaultLimit,
+    search: typeof req.query.search === 'string' ? (req.query.search.trim() || undefined) : undefined,
   }
 }
 
 /**
- * Extract list query parameters (pagination + entityId)
+ * Extract list query parameters (pagination + entityId + search)
  * Convenience function for standard list endpoints
  * 
  * @param req - Express request object
  * @param defaultPage - Default page value (default: 1)
  * @param defaultLimit - Default limit value (default: 10)
- * @returns Object with page, limit, and entityId
+ * @returns Object with page, limit, entityId, and optional search
  */
 export const extractListQueryParams = (
   req: Request,
   defaultPage: number = 1,
   defaultLimit: number = 10
-): { page: number; limit: number; entityId: string | null | undefined } => {
+): { page: number; limit: number; entityId: string | null | undefined; search?: string } => {
   return {
     page: typeof req.query.page === 'number' ? req.query.page : defaultPage,
     limit: typeof req.query.limit === 'number' ? req.query.limit : defaultLimit,
     entityId: (typeof req.query.entityId === 'string' || req.query.entityId === null)
       ? req.query.entityId
       : undefined,
+    search: typeof req.query.search === 'string' ? (req.query.search.trim() || undefined) : undefined,
   }
 }
 

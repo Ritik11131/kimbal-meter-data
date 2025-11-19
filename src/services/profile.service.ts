@@ -118,13 +118,15 @@ export const createProfileService = () => {
    * @param user - Authenticated user context
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated profile list
    */
   const listProfiles = async (
     entityId: string | null | undefined,
     user: AuthContext,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: Profile[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
       const isRoot = await isRootAdmin(user.entityId)
@@ -136,7 +138,7 @@ export const createProfileService = () => {
         } else {
           accessibleEntityIds = await getAccessibleEntityIds(user.entityId)
         }
-        const { data, total } = await profileRepository.paginateProfiles(page, limit, undefined, accessibleEntityIds)
+        const { data, total } = await profileRepository.paginateProfiles(page, limit, undefined, accessibleEntityIds, search)
         return {
           data,
           total,
@@ -149,7 +151,7 @@ export const createProfileService = () => {
           if (!isRoot) {
             throw new AppError("Only root admin can view global profiles", HTTP_STATUS.FORBIDDEN)
           }
-          const { data, total } = await profileRepository.paginateProfiles(page, limit, null)
+          const { data, total } = await profileRepository.paginateProfiles(page, limit, null, undefined, search)
           return {
             data,
             total,
@@ -158,7 +160,7 @@ export const createProfileService = () => {
             totalPages: Math.ceil(total / limit),
           }
         } else {
-          const { data, total } = await profileRepository.paginateProfiles(page, limit, entityId)
+          const { data, total } = await profileRepository.paginateProfiles(page, limit, entityId, undefined, search)
           return {
             data,
             total,

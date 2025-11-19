@@ -135,12 +135,14 @@ export const createModuleService = () => {
    * @param user - Authenticated user context
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated module list
    */
   const listModules = async (
     user: AuthContext,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: Module[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
       const isRoot = await isRootAdmin(user.entityId)
@@ -148,7 +150,7 @@ export const createModuleService = () => {
         throw new AppError("Only root admin can list modules", HTTP_STATUS.FORBIDDEN)
       }
 
-      const { data, total } = await moduleRepository.paginateModules(page, limit)
+      const { data, total } = await moduleRepository.paginateModules(page, limit, search)
       return {
         data,
         total,

@@ -3,6 +3,7 @@ import { User } from "../models/User" // Your Sequelize User model class
 import type { User as UserType, CreateUserDTO, UpdateUserDTO } from "../types/users"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
+import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createUserRepository = () => {
   const baseRepo = createBaseRepository(User)
@@ -36,12 +37,32 @@ export const createUserRepository = () => {
   const paginateByEntityId = async (
     entityId: string,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: UserType[]; total: number }> => {
-    const { data, total } = await baseRepo.paginate(page, limit, {
+    const where: any = {
       entity_id: entityId,
       is_deleted: false,
-    })
+    }
+    
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name", "email", "mobile_no"])
+    if (hasSearchCondition(searchCondition)) {
+      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
+      if (existingKeys.length > 0) {
+        // Combine existing conditions with search using AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        for (const key of existingKeys) {
+          delete where[key]
+        }
+      } else {
+        // No existing conditions, just use search condition directly
+        Object.assign(where, searchCondition)
+      }
+    }
+    
+    const { data, total } = await baseRepo.paginate(page, limit, where)
     return {
       data: data.map(user => user.get() as UserType),
       total,
@@ -132,7 +153,8 @@ export const createUserRepository = () => {
   const paginateByAccessibleEntities = async (
     accessibleEntityIds: string[],
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: UserType[]; total: number }> => {
     const where: any = {
       is_deleted: false,
@@ -145,6 +167,23 @@ export const createUserRepository = () => {
     } else {
       // Empty array means no accessible entities - return empty result
       where.id = { [Op.in]: [] }
+    }
+    
+    // Add search condition
+    const searchCondition = buildSearchCondition(search, ["name", "email", "mobile_no"])
+    if (hasSearchCondition(searchCondition)) {
+      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
+      if (existingKeys.length > 0) {
+        // Combine existing conditions with search using AND
+        const existingWhere = { ...where }
+        where[Op.and] = [existingWhere, searchCondition]
+        for (const key of existingKeys) {
+          delete where[key]
+        }
+      } else {
+        // No existing conditions, just use search condition directly
+        Object.assign(where, searchCondition)
+      }
     }
     
     const { data, total } = await baseRepo.paginate(page, limit, where)

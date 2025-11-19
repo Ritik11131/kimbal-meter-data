@@ -64,14 +64,14 @@ export const remove = async (req: Request, res: Response) => {
 
 /**
  * Lists modules with pagination (root admin only)
- * @param req - Express request object containing query parameters (page, limit)
+ * @param req - Express request object containing query parameters (page, limit, search)
  * @param res - Express response object
  */
 export const list = async (req: Request, res: Response) => {
   try {
-    const { page, limit } = extractPaginationParams(req)
+    const { page, limit, search } = extractPaginationParams(req)
     
-    const result = await moduleService.listModules(req.user!, page, limit)
+    const result = await moduleService.listModules(req.user!, page, limit, search)
     sendResponse(res, HTTP_STATUS.OK, result, "Modules listed", req.path)
   } catch (error: any) {
     sendError(res, error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message, req.path)

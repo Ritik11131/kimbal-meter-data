@@ -122,17 +122,19 @@ export const createUserService = () => {
    * @param currentUser - Authenticated user context
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated user list
    */
   const listUsers = async (
     entityId: string | null | undefined,
     currentUser: AuthContext,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: UserWithoutPassword[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
       if (entityId) {
-        const { data, total } = await userRepository.paginateByEntityId(entityId, page, limit)
+        const { data, total } = await userRepository.paginateByEntityId(entityId, page, limit, search)
         return {
           data: data.map((u) => excludePassword(u)),
           total,
@@ -143,7 +145,7 @@ export const createUserService = () => {
       }
       
       const accessibleEntityIds = await getAccessibleEntityIds(currentUser.entityId)
-      const { data, total } = await userRepository.paginateByAccessibleEntities(accessibleEntityIds, page, limit)
+      const { data, total } = await userRepository.paginateByAccessibleEntities(accessibleEntityIds, page, limit, search)
       return {
         data: data.map((u) => excludePassword(u)),
         total,
@@ -164,15 +166,17 @@ export const createUserService = () => {
    * @param currentUser - Authenticated user context
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated user list
    */
   const listUsersByEntity = async (
     entityId: string,
     currentUser: AuthContext,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: UserWithoutPassword[]; total: number; page: number; limit: number; totalPages: number }> => {
-    return listUsers(entityId, currentUser, page, limit)
+    return listUsers(entityId, currentUser, page, limit, search)
   }
 
   /**

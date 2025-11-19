@@ -84,17 +84,19 @@ export const createMeterService = () => {
    * @param user - Authenticated user context
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated meter list
    */
   const listMeters = async (
     entityId: string | null | undefined,
     user: AuthContext,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: Meter[]; total: number; page: number; limit: number; totalPages: number }> => {
     try {
       if (entityId) {
-        const { data, total } = await meterRepository.paginateByEntityId(entityId, page, limit)
+        const { data, total } = await meterRepository.paginateByEntityId(entityId, page, limit, search)
         return {
           data,
           total,
@@ -105,7 +107,7 @@ export const createMeterService = () => {
       }
       
       const accessibleEntityIds = await getAccessibleEntityIds(user.entityId)
-      const { data, total } = await meterRepository.paginateByAccessibleEntities(accessibleEntityIds, page, limit)
+      const { data, total } = await meterRepository.paginateByAccessibleEntities(accessibleEntityIds, page, limit, search)
       return {
         data,
         total,
@@ -126,15 +128,17 @@ export const createMeterService = () => {
    * @param user - Authenticated user context
    * @param page - Page number
    * @param limit - Items per page
+   * @param search - Optional search term
    * @returns Paginated meter list
    */
   const listMetersByEntity = async (
     entityId: string,
     user: AuthContext,
     page = 1,
-    limit = 10
+    limit = 10,
+    search?: string
   ): Promise<{ data: Meter[]; total: number; page: number; limit: number; totalPages: number }> => {
-    return listMeters(entityId, user, page, limit)
+    return listMeters(entityId, user, page, limit, search)
   }
 
   /**
