@@ -1,6 +1,8 @@
 import { createUserRepository } from "../repositories/user.repository"
 import { createRoleRepository } from "../repositories/role.repository"
+import { createEntityRepository } from "../repositories/entity.repository"
 import type { User, CreateUserDTO, UpdateUserDTO, UserWithoutPassword } from "../types/users"
+import type { UserTree } from "../types/search"
 import { CryptoUtil } from "../utils/cryptography"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
@@ -13,6 +15,7 @@ import { withTransaction } from "../utils/transactions"
 export const createUserService = () => {
   const userRepository = createUserRepository()
   const roleRepository = createRoleRepository()
+  const entityRepository = createEntityRepository()
 
   /**
    * Removes password fields from user object
@@ -47,7 +50,7 @@ export const createUserService = () => {
    */
   const createUser = async (data: CreateUserDTO, user: AuthContext): Promise<UserWithoutPassword> => {
     try {
-      return await withTransaction(async (transaction) => {
+      return await withTransaction(async () => {
         await validateEntityAccess(user.entityId, data.entity_id, "users")
 
         const existingEmail = await userRepository.findByEmail(data.email)
@@ -208,6 +211,123 @@ export const createUserService = () => {
     }
   }
 
+  /**
+   * Builds a nested tree structure from flat array of users
+   * @param users - Flat array of users
+   * @param rootUserId - ID of the root user
+   * @returns User tree structure or null if no users
+   */
+  const buildUserTree = async (
+    users: User[],
+    rootUserId: string
+  ): Promise<UserTree | null> => {
+    if (users.length === 0) return null
+
+    const userMap = new Map<string, UserTree>()
+    
+    // Create user tree nodes
+    users.forEach(user => {
+      const { password_hash, salt, ...userWithoutPassword } = user
+      userMap.set(user.id, {
+        ...userWithoutPassword,
+        children: [],
+        entity: undefined,
+      } as UserTree)
+    })
+
+    const rootUser = userMap.get(rootUserId)
+    if (!rootUser) return null
+
+    // Build parent-child relationships
+    const childrenByParent = new Map<string, User[]>()
+    users.forEach(user => {
+      if (user.id !== rootUserId && user.created_by) {
+        if (!childrenByParent.has(user.created_by)) {
+          childrenByParent.set(user.created_by, [])
+        }
+        childrenByParent.get(user.created_by)!.push(user)
+      }
+    })
+
+    // Attach children to parents
+    users.forEach(user => {
+      if (user.id !== rootUserId && user.created_by) {
+        const parent = userMap.get(user.created_by)
+        const child = userMap.get(user.id)
+        if (parent && child) {
+          parent.children.push(child)
+        }
+      }
+    })
+
+    // Fetch entity info for root user
+    const rootEntity = users.find(u => u.id === rootUserId)?.entity_id
+    if (rootEntity) {
+      try {
+        const entity = await entityRepository.findById(rootEntity)
+        if (entity) {
+          rootUser.entity = { id: entity.id, name: entity.name }
+        }
+      } catch (error) {
+        // Ignore errors - entity might not exist
+        logger.debug(`Entity ${rootEntity} not found for user ${rootUserId}`)
+      }
+    }
+
+    // Sort children by creation time
+    const sortChildren = (user: UserTree) => {
+      user.children.sort((a, b) => 
+        new Date(a.creation_time).getTime() - new Date(b.creation_time).getTime()
+      )
+      user.children.forEach(child => sortChildren(child))
+    }
+    sortChildren(rootUser)
+
+    return rootUser
+  }
+
+  /**
+   * Retrieves user hierarchy tree
+   * @param userId - Root user ID
+   * @param user - Authenticated user context
+   * @param options - Optional depth
+   * @returns User tree with hierarchy
+   */
+  const getUserHierarchy = async (
+    userId: string,
+    user: AuthContext,
+    options?: { depth?: number }
+  ): Promise<UserTree> => {
+    try {
+      const targetUser = await userRepository.findById(userId)
+      if (!targetUser) {
+        throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Validate access - user must be in accessible entity
+      await validateEntityAccess(user.entityId, targetUser.entity_id, "user")
+
+      const users = await userRepository.findUserHierarchy(userId, options?.depth)
+      const tree = await buildUserTree(users, userId)
+
+      if (!tree) {
+        throw new AppError("User hierarchy not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Fetch entity info for root user
+      const entity = await entityRepository.findById(targetUser.entity_id)
+      if (entity) {
+        tree.entity = { id: entity.id, name: entity.name }
+      }
+
+      return tree
+    } catch (error) {
+      logger.error("Error fetching user hierarchy:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
   return {
     getUserById,
     createUser,
@@ -216,5 +336,6 @@ export const createUserService = () => {
     listUsers,
     listUsersByEntity,
     changePassword,
+    getUserHierarchy,
   }
 }

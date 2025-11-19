@@ -1,6 +1,8 @@
 import { createProfileRepository } from "../repositories/profile.repository"
 import { createEntityRepository } from "../repositories/entity.repository"
+import { createEntityService } from "./entity.service"
 import type { Profile, CreateProfileDTO, UpdateProfileDTO } from "../types/entities"
+import type { ProfileHierarchy } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
@@ -11,6 +13,7 @@ import { isRootAdmin } from "../utils/rootAdmin"
 export const createProfileService = () => {
   const profileRepository = createProfileRepository()
   const entityRepository = createEntityRepository()
+  const entityService = createEntityService()
 
   /**
    * Retrieves a profile by ID and validates access
@@ -177,12 +180,56 @@ export const createProfileService = () => {
     }
   }
 
+  /**
+   * Gets profile hierarchy (profile with its entity hierarchy)
+   * @param profileId - Profile ID
+   * @param user - Authenticated user context
+   * @param options - Optional depth for entity hierarchy
+   * @returns Profile with entity hierarchy
+   */
+  const getProfileHierarchy = async (
+    profileId: string,
+    user: AuthContext,
+    options?: { depth?: number }
+  ): Promise<ProfileHierarchy> => {
+    try {
+      const profile = await getProfileById(profileId, user)
+
+      const result: ProfileHierarchy = {
+        ...profile,
+        entity: undefined,
+      }
+
+      // If profile has an entity, get its hierarchy
+      if (profile.entity_id) {
+        await validateEntityAccess(user.entityId, profile.entity_id, "entity")
+        const entityHierarchy = await entityService.getEntityHierarchy(
+          profile.entity_id,
+          user,
+          { depth: options?.depth }
+        )
+        result.entity = {
+          id: entityHierarchy.id,
+          name: entityHierarchy.name,
+          children: (entityHierarchy as any).children || [],
+        }
+      }
+
+      return result
+    } catch (error) {
+      logger.error("Error fetching profile hierarchy:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
   return {
     getProfileById,
     createProfile,
     updateProfile,
     deleteProfile,
     listProfiles,
+    getProfileHierarchy,
   }
 }
 

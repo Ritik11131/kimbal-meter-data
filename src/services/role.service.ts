@@ -1,6 +1,8 @@
 import { createRoleRepository } from "../repositories/role.repository"
 import { createUserRepository } from "../repositories/user.repository"
+import { createEntityService } from "./entity.service"
 import type { Role } from "../types/entities"
+import type { RoleHierarchy } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
@@ -11,6 +13,7 @@ import { isRootAdmin } from "../utils/rootAdmin"
 export const createRoleService = () => {
   const roleRepository = createRoleRepository()
   const userRepository = createUserRepository()
+  const entityService = createEntityService()
 
   /**
    * Retrieves a role by ID and validates access
@@ -174,11 +177,55 @@ export const createRoleService = () => {
     }
   }
 
+  /**
+   * Gets role hierarchy (role with its entity hierarchy)
+   * @param roleId - Role ID
+   * @param user - Authenticated user context
+   * @param options - Optional depth for entity hierarchy
+   * @returns Role with entity hierarchy
+   */
+  const getRoleHierarchy = async (
+    roleId: string,
+    user: AuthContext,
+    options?: { depth?: number }
+  ): Promise<RoleHierarchy> => {
+    try {
+      const role = await getRoleById(roleId, user)
+
+      const result: RoleHierarchy = {
+        ...role,
+        entity: undefined,
+      }
+
+      // If role has an entity, get its hierarchy
+      if (role.entity_id) {
+        await validateEntityAccess(user.entityId, role.entity_id, "entity")
+        const entityHierarchy = await entityService.getEntityHierarchy(
+          role.entity_id,
+          user,
+          { depth: options?.depth }
+        )
+        result.entity = {
+          id: entityHierarchy.id,
+          name: entityHierarchy.name,
+          children: (entityHierarchy as any).children || [],
+        }
+      }
+
+      return result
+    } catch (error) {
+      logger.error("Error fetching role hierarchy:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
   return {
     getRoleById,
     createRole,
     updateRole,
     listRolesByEntity,
     deleteRole,
+    getRoleHierarchy,
   }
 }

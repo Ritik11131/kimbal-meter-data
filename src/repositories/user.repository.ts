@@ -4,6 +4,8 @@ import type { User as UserType, CreateUserDTO, UpdateUserDTO } from "../types/us
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
 import { buildSearchCondition, hasSearchCondition } from "../utils/search"
+import { getSequelize } from "../database/connection"
+import logger from "../utils/logger"
 
 export const createUserRepository = () => {
   const baseRepo = createBaseRepository(User)
@@ -151,7 +153,7 @@ export const createUserRepository = () => {
   }
 
   const paginateByAccessibleEntities = async (
-    accessibleEntityIds: string[],
+    accessibleEntityIds: string[] | undefined,
     page = 1,
     limit = 10,
     search?: string
@@ -160,14 +162,18 @@ export const createUserRepository = () => {
       is_deleted: false,
     }
     
-    if (accessibleEntityIds.length > 0) {
-      where.entity_id = {
-        [Op.in]: accessibleEntityIds
+    // If undefined, it means root admin - no entity filter
+    if (accessibleEntityIds !== undefined) {
+      if (accessibleEntityIds.length > 0) {
+        where.entity_id = {
+          [Op.in]: accessibleEntityIds
+        }
+      } else {
+        // Empty array means no accessible entities - return empty result
+        where.id = { [Op.in]: [] }
       }
-    } else {
-      // Empty array means no accessible entities - return empty result
-      where.id = { [Op.in]: [] }
     }
+    // If undefined, don't add entity filter (root admin can see all)
     
     // Add search condition
     const searchCondition = buildSearchCondition(search, ["name", "email", "mobile_no"])
@@ -193,6 +199,61 @@ export const createUserRepository = () => {
     }
   }
 
+  /**
+   * Finds user hierarchy using recursive CTE query (via created_by relationship)
+   * @param userId - Root user ID
+   * @param maxDepth - Optional maximum depth
+   * @returns Array of users in hierarchy
+   */
+  const findUserHierarchy = async (userId: string, maxDepth?: number): Promise<UserType[]> => {
+    try {
+      const sequelize = getSequelize()
+      
+      let depthCondition = ''
+      if (maxDepth !== undefined && maxDepth > 0) {
+        depthCondition = 'AND depth < :maxDepth'
+      }
+      
+      const query = `
+        WITH RECURSIVE user_tree AS (
+          SELECT *, 0 as depth FROM users WHERE id = :userId AND is_deleted = false
+          UNION ALL
+          SELECT u.*, ut.depth + 1 as depth FROM users u
+          INNER JOIN user_tree ut ON u.created_by = ut.id
+          WHERE u.is_deleted = false AND ut.depth + 1 <= COALESCE(:maxDepth, 999) ${depthCondition}
+        )
+        SELECT * FROM user_tree ORDER BY depth, creation_time;
+      `
+      const [results] = await sequelize.query(query, {
+        replacements: { 
+          userId,
+          maxDepth: maxDepth ?? 999
+        },
+      }) as [any[], any]
+      
+      if (!Array.isArray(results)) {
+        logger.error(`findUserHierarchy: Query result is not an array: ${typeof results}`)
+        return []
+      }
+      
+      return results.map((row: any) => {
+        if (row && !row.dataValues && typeof row.get !== 'function') {
+          return row as UserType
+        }
+        if (row && typeof row.get === 'function') {
+          return row.get() as UserType
+        }
+        if (row && row.dataValues) {
+          return row.dataValues as UserType
+        }
+        return row as UserType
+      })
+    } catch (error) {
+      logger.error("Find user hierarchy failed:", error)
+      throw error
+    }
+  }
+
   return {
     ...baseRepo,
     findById,
@@ -207,5 +268,6 @@ export const createUserRepository = () => {
     changePassword,
     findByAccessibleEntities,
     paginateByAccessibleEntities,
+    findUserHierarchy,
   }
 }

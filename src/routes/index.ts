@@ -6,6 +6,7 @@ import roleRoutes from "./role.routes"
 import meterRoutes from "./meter.routes"
 import profileRoutes from "./profile.routes"
 import moduleRoutes from "./module.routes"
+import searchRoutes from "./search.routes"
 
 const router = Router()
 
@@ -16,5 +17,6 @@ router.use("/roles", roleRoutes)
 router.use("/meters", meterRoutes)
 router.use("/profiles", profileRoutes)
 router.use("/modules", moduleRoutes)
+router.use("/search", searchRoutes)
 
 export default router
