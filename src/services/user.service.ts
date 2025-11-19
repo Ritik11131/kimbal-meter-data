@@ -2,7 +2,8 @@ import { createUserRepository } from "../repositories/user.repository"
 import { createRoleRepository } from "../repositories/role.repository"
 import { createEntityRepository } from "../repositories/entity.repository"
 import type { User, CreateUserDTO, UpdateUserDTO, UserWithoutPassword } from "../types/users"
-import type { UserTree } from "../types/search"
+import type { UserTree, UserHierarchyResponse, EntityTreeWithSelection } from "../types/search"
+import { createEntityService } from "./entity.service"
 import { CryptoUtil } from "../utils/cryptography"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
@@ -16,6 +17,7 @@ export const createUserService = () => {
   const userRepository = createUserRepository()
   const roleRepository = createRoleRepository()
   const entityRepository = createEntityRepository()
+  const entityService = createEntityService()
 
   /**
    * Removes password fields from user object
@@ -287,7 +289,111 @@ export const createUserService = () => {
   }
 
   /**
-   * Retrieves user hierarchy tree
+   * Marks a selected user in the hierarchy tree
+   * @param tree - User tree
+   * @param selectedUserId - ID of the selected user
+   * @returns Tree with isSelected markers
+   */
+  const markSelectedUser = (tree: UserTree, selectedUserId: string): UserTree => {
+    const markRecursive = (node: UserTree): UserTree => {
+      const isSelected = node.id === selectedUserId
+      return {
+        ...node,
+        isSelected,
+        children: node.children.map(child => markRecursive(child)),
+      }
+    }
+    return markRecursive(tree)
+  }
+
+  /**
+   * Retrieves user hierarchy starting from logged-in user's entity
+   * @param selectedUserId - The user to find in hierarchy
+   * @param user - Authenticated user context
+   * @param options - Optional depth
+   * @returns User hierarchy response with entity and user hierarchies
+   */
+  const getUserHierarchyFromUserEntity = async (
+    selectedUserId: string,
+    user: AuthContext,
+    options?: { depth?: number }
+  ): Promise<UserHierarchyResponse> => {
+    try {
+      const targetUser = await userRepository.findById(selectedUserId)
+      if (!targetUser) {
+        throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Validate access - user must be in accessible entity
+      await validateEntityAccess(user.entityId, targetUser.entity_id, "user")
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId)
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Get entity hierarchy from user's entity to target user's entity
+      const entityHierarchy = await entityService.getEntityHierarchy(user.entityId, user, options)
+      const entityTreeWithSelection = entityService.markSelectedEntity(entityHierarchy, targetUser.entity_id)
+
+      // Get user hierarchy starting from root user in target user's entity
+      // Find the root user (created_by is null) in that entity
+      const usersInEntity = await userRepository.findByEntityId(targetUser.entity_id)
+      const rootUser = usersInEntity.find(u => !u.created_by) || usersInEntity[0]
+      
+      if (!rootUser) {
+        throw new AppError("No users found in entity", HTTP_STATUS.NOT_FOUND)
+      }
+
+      const users = await userRepository.findUserHierarchy(rootUser.id, options?.depth)
+      const userTree = await buildUserTree(users, rootUser.id)
+      
+      if (!userTree) {
+        throw new AppError("User hierarchy not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Mark selected user
+      const userTreeWithSelection = markSelectedUser(userTree, selectedUserId)
+
+      // Fetch entity info for users
+      const entity = await entityRepository.findById(targetUser.entity_id)
+      if (entity) {
+        userTreeWithSelection.entity = { id: entity.id, name: entity.name }
+        // Also set entity for all children
+        const setEntityRecursive = (node: UserTree) => {
+          if (!node.entity && entity) {
+            node.entity = { id: entity.id, name: entity.name }
+          }
+          node.children.forEach(child => setEntityRecursive(child))
+        }
+        setEntityRecursive(userTreeWithSelection)
+      }
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "user",
+          id: targetUser.id,
+          name: targetUser.name,
+          entityId: targetUser.entity_id,
+        },
+        entityHierarchy: entityTreeWithSelection,
+        userHierarchy: userTreeWithSelection,
+      }
+    } catch (error) {
+      logger.error("Error fetching user hierarchy from user entity:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  /**
+   * Retrieves user hierarchy tree (legacy method - kept for backward compatibility)
    * @param userId - Root user ID
    * @param user - Authenticated user context
    * @param options - Optional depth
@@ -337,5 +443,6 @@ export const createUserService = () => {
     listUsersByEntity,
     changePassword,
     getUserHierarchy,
+    getUserHierarchyFromUserEntity,
   }
 }

@@ -1,8 +1,9 @@
 import { createRoleRepository } from "../repositories/role.repository"
 import { createUserRepository } from "../repositories/user.repository"
 import { createEntityService } from "./entity.service"
+import { createEntityRepository } from "../repositories/entity.repository"
 import type { Role } from "../types/entities"
-import type { RoleHierarchy } from "../types/search"
+import type { RoleHierarchyResponse } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
@@ -14,6 +15,7 @@ export const createRoleService = () => {
   const roleRepository = createRoleRepository()
   const userRepository = createUserRepository()
   const entityService = createEntityService()
+  const entityRepository = createEntityRepository()
 
   /**
    * Retrieves a role by ID and validates access
@@ -178,7 +180,59 @@ export const createRoleService = () => {
   }
 
   /**
-   * Gets role hierarchy (role with its entity hierarchy)
+   * Gets role hierarchy starting from logged-in user's entity
+   * @param roleId - Role ID
+   * @param user - Authenticated user context
+   * @param options - Optional depth for entity hierarchy
+   * @returns Role hierarchy response with entity hierarchy from user's entity
+   */
+  const getRoleHierarchyFromUserEntity = async (
+    roleId: string,
+    user: AuthContext,
+    options?: { depth?: number }
+  ): Promise<RoleHierarchyResponse> => {
+    try {
+      const role = await getRoleById(roleId, user)
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId)
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      let entityHierarchy = undefined
+
+      // If role has an entity, get hierarchy from user's entity to role's entity
+      if (role.entity_id) {
+        await validateEntityAccess(user.entityId, role.entity_id, "entity")
+        const hierarchy = await entityService.getEntityHierarchy(user.entityId, user, { depth: options?.depth })
+        entityHierarchy = entityService.markSelectedEntity(hierarchy, role.entity_id)
+      }
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "role",
+          id: role.id,
+          name: role.name,
+          entityId: role.entity_id,
+        },
+        role,
+        entityHierarchy,
+      }
+    } catch (error) {
+      logger.error("Error fetching role hierarchy:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  /**
+   * Gets role hierarchy (legacy method - kept for backward compatibility)
    * @param roleId - Role ID
    * @param user - Authenticated user context
    * @param options - Optional depth for entity hierarchy
@@ -188,35 +242,11 @@ export const createRoleService = () => {
     roleId: string,
     user: AuthContext,
     options?: { depth?: number }
-  ): Promise<RoleHierarchy> => {
-    try {
-      const role = await getRoleById(roleId, user)
-
-      const result: RoleHierarchy = {
-        ...role,
-        entity: undefined,
-      }
-
-      // If role has an entity, get its hierarchy
-      if (role.entity_id) {
-        await validateEntityAccess(user.entityId, role.entity_id, "entity")
-        const entityHierarchy = await entityService.getEntityHierarchy(
-          role.entity_id,
-          user,
-          { depth: options?.depth }
-        )
-        result.entity = {
-          id: entityHierarchy.id,
-          name: entityHierarchy.name,
-          children: (entityHierarchy as any).children || [],
-        }
-      }
-
-      return result
-    } catch (error) {
-      logger.error("Error fetching role hierarchy:", error)
-      if (error instanceof AppError) throw error
-      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+  ): Promise<any> => {
+    const result = await getRoleHierarchyFromUserEntity(roleId, user, options)
+    return {
+      ...result.role,
+      entity: result.entityHierarchy,
     }
   }
 
@@ -227,5 +257,6 @@ export const createRoleService = () => {
     listRolesByEntity,
     deleteRole,
     getRoleHierarchy,
+    getRoleHierarchyFromUserEntity,
   }
 }

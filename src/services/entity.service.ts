@@ -1,4 +1,5 @@
 import type { Entity, CreateEntityDTO, UpdateEntityDTO } from '../types/entities';
+import type { EntityTreeWithSelection, EntityHierarchyResponse } from '../types/search';
 import { AppError } from '../middleware/errorHandler';
 import { HTTP_STATUS, ERROR_MESSAGES } from '../config/constants';
 import logger from '../utils/logger';
@@ -288,9 +289,86 @@ export const createEntityService = () => {
     }
   };
 
+  /**
+   * Marks a selected entity in the hierarchy tree
+   * @param tree - Entity tree
+   * @param selectedEntityId - ID of the selected entity
+   * @returns Tree with isSelected markers
+   */
+  const markSelectedEntity = (
+    tree: EntityTree,
+    selectedEntityId: string
+  ): EntityTreeWithSelection => {
+    const markRecursive = (node: EntityTree): EntityTreeWithSelection => {
+      const isSelected = node.id === selectedEntityId;
+      return {
+        ...node,
+        isSelected,
+        children: node.children.map(child => markRecursive(child)),
+      };
+    };
+    return markRecursive(tree);
+  };
+
+  /**
+   * Gets entity hierarchy starting from logged-in user's entity, showing selected entity
+   * @param selectedEntityId - The entity to find in hierarchy
+   * @param user - Authenticated user context
+   * @param options - Optional depth, pagination
+   * @returns Hierarchy response with user's entity as root and selected entity marked
+   */
+  const getEntityHierarchyFromUserEntity = async (
+    selectedEntityId: string,
+    user: AuthContext,
+    options?: { depth?: number; page?: number; limit?: number; paginateRootChildren?: boolean }
+  ): Promise<EntityHierarchyResponse> => {
+    try {
+      // Validate access to selected entity
+      await validateEntityAccess(user.entityId, selectedEntityId, "entity");
+
+      // Get selected entity info
+      const selectedEntity = await entityRepository.findById(selectedEntityId);
+      if (!selectedEntity) {
+        throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+      }
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId);
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND);
+      }
+
+      // Get hierarchy from user's entity
+      const hierarchy = await getEntityHierarchy(user.entityId, user, options);
+      
+      // Mark selected entity in the tree
+      const hierarchyWithSelection = markSelectedEntity(hierarchy, selectedEntityId);
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "entity",
+          id: selectedEntity.id,
+          name: selectedEntity.name,
+        },
+        hierarchy: hierarchyWithSelection,
+      };
+    } catch (error) {
+      logger.error('Error fetching entity hierarchy from user entity:', error);
+      if (error instanceof AppError) throw error;
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    }
+  };
+
   return {
     getEntityById,
     getEntityHierarchy,
+    getEntityHierarchyFromUserEntity,
+    markSelectedEntity,
     createEntity,
     updateEntity,
     deleteEntity,

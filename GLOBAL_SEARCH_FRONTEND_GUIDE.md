@@ -4,6 +4,16 @@
 
 This guide provides complete documentation for integrating the Global Search API into your frontend application. The search API allows users to search across **Entities**, **Users**, **Profiles**, and **Roles** with category-wise results and hierarchy support.
 
+### Key Feature: Context-Aware Hierarchy
+
+**Important**: The hierarchy always starts from the **logged-in user's entity**, not from the selected resource. This provides complete context showing:
+
+- **Root Admin (ETL Admin)**: Hierarchy starts from ETL Admin, showing the complete organization structure
+- **KMP Admin**: Hierarchy starts from KMP Energy, showing only their accessible branch
+- **Ideal Energy Admin**: Hierarchy starts from Ideal Energy, showing only their sub-entities
+
+The selected resource is **highlighted** with `isSelected: true` in the hierarchy tree, making it easy to see where it fits in your organizational structure.
+
 ---
 
 ## Table of Contents
@@ -54,13 +64,21 @@ GET /api/search?q=admin&type=profile
 
 **Endpoint**: `GET /api/search/:type/:id/hierarchy`
 
-**Purpose**: Get complete hierarchy for a selected search result
+**Purpose**: Get complete hierarchy starting from the logged-in user's entity, showing where the selected resource fits in the hierarchy
+
+**Important Behavior**:
+- **Hierarchy always starts from the logged-in user's entity** (not from the selected resource)
+- If logged in as **Root Admin (ETL Admin)**, hierarchy starts from ETL Admin
+- If logged in as **KMP Admin**, hierarchy starts from KMP Admin
+- If logged in as **Ideal Energy**, hierarchy starts from Ideal Energy
+- The selected resource is highlighted/marked within the hierarchy tree
+- This provides context showing the complete hierarchy path from your root entity to the selected resource
 
 **Authentication**: Required (JWT token in Authorization header)
 
 **Path Parameters**:
 - `type`: Resource type (`entity`, `user`, `profile`, `role`)
-- `id`: Resource ID (UUID)
+- `id`: Resource ID (UUID) - The selected resource to find in hierarchy
 
 **Query Parameters**:
 - `depth` (optional): Maximum depth levels (default: unlimited)
@@ -70,7 +88,7 @@ GET /api/search?q=admin&type=profile
 
 **Example Requests**:
 ```bash
-# Get entity hierarchy
+# Get entity hierarchy (shows from logged-in user's entity to selected entity)
 GET /api/search/entity/550e8400-e29b-41d4-a716-446655440000/hierarchy
 
 # Get user hierarchy with depth limit
@@ -79,6 +97,13 @@ GET /api/search/user/550e8400-e29b-41d4-a716-446655440000/hierarchy?depth=3
 # Get profile hierarchy
 GET /api/search/profile/550e8400-e29b-41d4-a716-446655440000/hierarchy
 ```
+
+**Response Structure**:
+- The hierarchy tree starts from `userEntity` (logged-in user's entity)
+- The selected resource is marked with `isSelected: true` in the response
+- For entities: Shows entity hierarchy tree
+- For users: Shows user hierarchy tree with entity context
+- For profiles/roles: Shows the entity hierarchy they belong to
 
 ---
 
@@ -114,11 +139,20 @@ GET /api/search/profile/550e8400-e29b-41d4-a716-446655440000/hierarchy
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 5. Frontend calls GET /api/search/:type/:id/hierarchy        │
+│    API automatically:                                        │
+│    - Gets logged-in user's entity (from JWT)                │
+│    - Builds hierarchy from user's entity                    │
+│    - Finds selected resource in hierarchy                   │
+│    - Marks selected resource with isSelected: true          │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 6. Display hierarchy tree view                               │
+│ 6. Display hierarchy tree view starting from:                │
+│    - Root Admin → if logged in as Root Admin                │
+│    - KMP Admin → if logged in as KMP Admin                  │
+│    - Ideal Energy → if logged in as Ideal Energy            │
+│    Selected resource is highlighted in the tree              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -613,9 +647,11 @@ Authorization: Bearer <jwt_token>
 
 ### Example 3: Get Entity Hierarchy
 
+**Scenario**: User logged in as "KMP Admin" (entityId: `kmp-entity-id`), searching for "Ideal Energy" (entityId: `ideal-entity-id`)
+
 **Request**:
 ```http
-GET /api/search/entity/550e8400-e29b-41d4-a716-446655440000/hierarchy?depth=3
+GET /api/search/entity/ideal-entity-id/hierarchy?depth=3
 Authorization: Bearer <jwt_token>
 ```
 
@@ -625,58 +661,80 @@ Authorization: Bearer <jwt_token>
   "success": true,
   "message": "Entity hierarchy retrieved",
   "data": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "KMP Energy",
-    "email_id": "contact@kmpenergy.com",
-    "mobile_no": "+1234567890",
-    "entity_id": null,
-    "profile_id": "770e8400-e29b-41d4-a716-446655440002",
-    "attributes": null,
-    "created_by": "880e8400-e29b-41d4-a716-446655440003",
-    "creation_time": "2024-01-15T10:30:00Z",
-    "last_update_on": "2024-01-15T10:30:00Z",
-    "children": [
-      {
-        "id": "660e8400-e29b-41d4-a716-446655440001",
-        "name": "Ideal Energy",
-        "email_id": "contact@idealenergy.com",
-        "mobile_no": "+1234567891",
-        "entity_id": "550e8400-e29b-41d4-a716-446655440000",
-        "profile_id": "770e8400-e29b-41d4-a716-446655440002",
-        "attributes": null,
-        "created_by": "880e8400-e29b-41d4-a716-446655440003",
-        "creation_time": "2024-01-16T10:30:00Z",
-        "last_update_on": "2024-01-16T10:30:00Z",
-        "children": [
-          {
-            "id": "770e8400-e29b-41d4-a716-446655440004",
-            "name": "Patanjali Energy",
-            "email_id": "contact@patanjali.com",
-            "mobile_no": "+1234567892",
-            "entity_id": "660e8400-e29b-41d4-a716-446655440001",
-            "profile_id": "770e8400-e29b-41d4-a716-446655440002",
-            "attributes": null,
-            "created_by": "880e8400-e29b-41d4-a716-446655440003",
-            "creation_time": "2024-01-17T10:30:00Z",
-            "last_update_on": "2024-01-17T10:30:00Z",
-            "children": []
-          }
-        ]
-      }
-    ]
+    "userEntity": {
+      "id": "kmp-entity-id",
+      "name": "KMP Energy",
+      "email_id": "contact@kmpenergy.com"
+    },
+    "selectedResource": {
+      "type": "entity",
+      "id": "ideal-entity-id",
+      "name": "Ideal Energy"
+    },
+    "hierarchy": {
+      "id": "kmp-entity-id",
+      "name": "KMP Energy",
+      "email_id": "contact@kmpenergy.com",
+      "mobile_no": "+1234567890",
+      "entity_id": null,
+      "profile_id": "770e8400-e29b-41d4-a716-446655440002",
+      "attributes": null,
+      "created_by": "880e8400-e29b-41d4-a716-446655440003",
+      "creation_time": "2024-01-15T10:30:00Z",
+      "last_update_on": "2024-01-15T10:30:00Z",
+      "isSelected": false,
+      "children": [
+        {
+          "id": "ideal-entity-id",
+          "name": "Ideal Energy",
+          "email_id": "contact@idealenergy.com",
+          "mobile_no": "+1234567891",
+          "entity_id": "kmp-entity-id",
+          "profile_id": "770e8400-e29b-41d4-a716-446655440002",
+          "attributes": null,
+          "created_by": "880e8400-e29b-41d4-a716-446655440003",
+          "creation_time": "2024-01-16T10:30:00Z",
+          "last_update_on": "2024-01-16T10:30:00Z",
+          "isSelected": true,
+          "children": [
+            {
+              "id": "770e8400-e29b-41d4-a716-446655440004",
+              "name": "Patanjali Energy",
+              "email_id": "contact@patanjali.com",
+              "mobile_no": "+1234567892",
+              "entity_id": "ideal-entity-id",
+              "profile_id": "770e8400-e29b-41d4-a716-446655440002",
+              "attributes": null,
+              "created_by": "880e8400-e29b-41d4-a716-446655440003",
+              "creation_time": "2024-01-17T10:30:00Z",
+              "last_update_on": "2024-01-17T10:30:00Z",
+              "isSelected": false,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
   },
   "timestamp": 1705564800000,
-  "path": "/api/search/entity/550e8400-e29b-41d4-a716-446655440000/hierarchy"
+  "path": "/api/search/entity/ideal-entity-id/hierarchy"
 }
 ```
+
+**Note**: 
+- Hierarchy starts from logged-in user's entity (KMP Energy)
+- Selected entity (Ideal Energy) is marked with `isSelected: true`
+- Complete path from root to selected resource is visible
 
 ---
 
 ### Example 4: Get User Hierarchy
 
+**Scenario**: User logged in as "KMP Admin", searching for user "Jane Smith" who belongs to "Ideal Energy" entity
+
 **Request**:
 ```http
-GET /api/search/user/990e8400-e29b-41d4-a716-446655440004/hierarchy
+GET /api/search/user/jane-user-id/hierarchy
 Authorization: Bearer <jwt_token>
 ```
 
@@ -686,52 +744,74 @@ Authorization: Bearer <jwt_token>
   "success": true,
   "message": "User hierarchy retrieved",
   "data": {
-    "id": "990e8400-e29b-41d4-a716-446655440004",
-    "entity_id": "550e8400-e29b-41d4-a716-446655440000",
-    "email": "john.doe@example.com",
-    "mobile_no": "+1234567891",
-    "name": "John Doe",
-    "is_active": true,
-    "is_deleted": false,
-    "attributes": null,
-    "created_by": null,
-    "creation_time": "2024-01-16T09:00:00Z",
-    "last_update_on": "2024-01-16T09:00:00Z",
-    "role_id": "bb0e8400-e29b-41d4-a716-446655440006",
-    "children": [
-      {
-        "id": "aa0e8400-e29b-41d4-a716-446655440005",
-        "entity_id": "550e8400-e29b-41d4-a716-446655440000",
-        "email": "jane.smith@example.com",
-        "mobile_no": "+1234567892",
-        "name": "Jane Smith",
-        "is_active": true,
-        "is_deleted": false,
-        "attributes": null,
-        "created_by": "990e8400-e29b-41d4-a716-446655440004",
-        "creation_time": "2024-01-17T09:00:00Z",
-        "last_update_on": "2024-01-17T09:00:00Z",
-        "role_id": "bb0e8400-e29b-41d4-a716-446655440006",
-        "children": []
-      }
-    ],
-    "entity": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
+    "userEntity": {
+      "id": "kmp-entity-id",
       "name": "KMP Energy"
+    },
+    "selectedResource": {
+      "type": "user",
+      "id": "jane-user-id",
+      "name": "Jane Smith",
+      "entityId": "ideal-entity-id"
+    },
+    "entityHierarchy": {
+      "id": "kmp-entity-id",
+      "name": "KMP Energy",
+      "isSelected": false,
+      "children": [
+        {
+          "id": "ideal-entity-id",
+          "name": "Ideal Energy",
+          "isSelected": true,
+          "children": []
+        }
+      ]
+    },
+    "userHierarchy": {
+      "id": "john-user-id",
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "entity_id": "ideal-entity-id",
+      "isSelected": false,
+      "entity": {
+        "id": "ideal-entity-id",
+        "name": "Ideal Energy"
+      },
+      "children": [
+        {
+          "id": "jane-user-id",
+          "name": "Jane Smith",
+          "email": "jane.smith@example.com",
+          "entity_id": "ideal-entity-id",
+          "isSelected": true,
+          "entity": {
+            "id": "ideal-entity-id",
+            "name": "Ideal Energy"
+          },
+          "children": []
+        }
+      ]
     }
   },
   "timestamp": 1705564800000,
-  "path": "/api/search/user/990e8400-e29b-41d4-a716-446655440004/hierarchy"
+  "path": "/api/search/user/jane-user-id/hierarchy"
 }
 ```
+
+**Note**:
+- Shows entity hierarchy from logged-in user's entity (KMP Energy) to selected user's entity (Ideal Energy)
+- Shows user hierarchy starting from the root user in that entity
+- Selected user is marked with `isSelected: true`
 
 ---
 
 ### Example 5: Get Profile Hierarchy
 
+**Scenario**: User logged in as "KMP Admin", searching for profile "Tenant Profile" that belongs to "Ideal Energy" entity
+
 **Request**:
 ```http
-GET /api/search/profile/cc0e8400-e29b-41d4-a716-446655440007/hierarchy
+GET /api/search/profile/profile-id/hierarchy
 Authorization: Bearer <jwt_token>
 ```
 
@@ -741,29 +821,49 @@ Authorization: Bearer <jwt_token>
   "success": true,
   "message": "Profile hierarchy retrieved",
   "data": {
-    "id": "cc0e8400-e29b-41d4-a716-446655440007",
-    "name": "John's Profile",
-    "entity_id": "550e8400-e29b-41d4-a716-446655440000",
-    "attributes": null,
-    "created_by": "dd0e8400-e29b-41d4-a716-446655440008",
-    "creation_time": "2024-01-17T08:00:00Z",
-    "last_update_on": "2024-01-17T08:00:00Z",
-    "entity": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
+    "userEntity": {
+      "id": "kmp-entity-id",
       "name": "KMP Energy",
+      "email_id": "contact@kmpenergy.com"
+    },
+    "selectedResource": {
+      "type": "profile",
+      "id": "profile-id",
+      "name": "Tenant Profile",
+      "entityId": "ideal-entity-id"
+    },
+    "profile": {
+      "id": "profile-id",
+      "name": "Tenant Profile",
+      "entity_id": "ideal-entity-id",
+      "attributes": null,
+      "created_by": "dd0e8400-e29b-41d4-a716-446655440008",
+      "creation_time": "2024-01-17T08:00:00Z",
+      "last_update_on": "2024-01-17T08:00:00Z"
+    },
+    "entityHierarchy": {
+      "id": "kmp-entity-id",
+      "name": "KMP Energy",
+      "isSelected": false,
       "children": [
         {
-          "id": "660e8400-e29b-41d4-a716-446655440001",
+          "id": "ideal-entity-id",
           "name": "Ideal Energy",
+          "isSelected": true,
           "children": []
         }
       ]
     }
   },
   "timestamp": 1705564800000,
-  "path": "/api/search/profile/cc0e8400-e29b-41d4-a716-446655440007/hierarchy"
+  "path": "/api/search/profile/profile-id/hierarchy"
 }
 ```
+
+**Note**:
+- Shows entity hierarchy from logged-in user's entity (KMP Energy) to profile's entity (Ideal Energy)
+- Profile's entity is marked with `isSelected: true`
+- Complete context showing where the profile fits in the organizational structure
 
 ---
 
@@ -1121,24 +1221,35 @@ export const GlobalSearch: React.FC = () => {
 
 2. **API Endpoints**:
    - `GET /api/search` - Global search
-   - `GET /api/search/:type/:id/hierarchy` - Get hierarchy
+   - `GET /api/search/:type/:id/hierarchy` - Get hierarchy (starts from logged-in user's entity)
 
 3. **Response Structure**:
    - Category-wise grouped results
    - Pagination metadata
-   - Hierarchy tree structure
+   - Hierarchy tree structure starting from user's entity
+   - Selected resource marked with `isSelected: true`
 
-4. **Best Practices**:
+4. **Hierarchy Behavior**:
+   - **Always starts from logged-in user's entity** (not from selected resource)
+   - Root Admin sees from ETL Admin
+   - KMP Admin sees from KMP Energy
+   - Ideal Energy Admin sees from Ideal Energy
+   - Selected resource is highlighted in the tree
+   - Provides complete context of organizational structure
+
+5. **Best Practices**:
    - Implement debouncing (300ms)
    - Handle errors gracefully
    - Show loading states
    - Cache recent searches
    - Optimize for mobile
+   - Highlight selected resource in hierarchy view
 
-5. **Access Control**:
+6. **Access Control**:
    - All endpoints require authentication
    - Results are filtered by user's accessible entities
    - Hierarchy access is validated
+   - Users can only see hierarchies within their accessible scope
 
 ---
 

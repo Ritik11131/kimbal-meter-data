@@ -107,6 +107,7 @@ export const getHierarchy = async (req: Request, res: Response) => {
     }
 
     // Route to appropriate service based on type
+    // All hierarchies now start from logged-in user's entity
     switch (type) {
       case "entity": {
         const options = {
@@ -115,28 +116,28 @@ export const getHierarchy = async (req: Request, res: Response) => {
           limit,
           paginateRootChildren: paginateRootChildren || false,
         }
-        const hierarchy = await entityService.getEntityHierarchy(id, req.user!, options)
+        const hierarchy = await entityService.getEntityHierarchyFromUserEntity(id, req.user!, options)
         sendResponse(res, HTTP_STATUS.OK, hierarchy, "Entity hierarchy retrieved", req.path)
         break
       }
 
       case "user": {
         const options = { depth }
-        const hierarchy = await userService.getUserHierarchy(id, req.user!, options)
+        const hierarchy = await userService.getUserHierarchyFromUserEntity(id, req.user!, options)
         sendResponse(res, HTTP_STATUS.OK, hierarchy, "User hierarchy retrieved", req.path)
         break
       }
 
       case "profile": {
         const options = { depth }
-        const hierarchy = await profileService.getProfileHierarchy(id, req.user!, options)
+        const hierarchy = await profileService.getProfileHierarchyFromUserEntity(id, req.user!, options)
         sendResponse(res, HTTP_STATUS.OK, hierarchy, "Profile hierarchy retrieved", req.path)
         break
       }
 
       case "role": {
         const options = { depth }
-        const hierarchy = await roleService.getRoleHierarchy(id, req.user!, options)
+        const hierarchy = await roleService.getRoleHierarchyFromUserEntity(id, req.user!, options)
         sendResponse(res, HTTP_STATUS.OK, hierarchy, "Role hierarchy retrieved", req.path)
         break
       }

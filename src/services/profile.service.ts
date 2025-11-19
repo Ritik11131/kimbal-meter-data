@@ -2,7 +2,7 @@ import { createProfileRepository } from "../repositories/profile.repository"
 import { createEntityRepository } from "../repositories/entity.repository"
 import { createEntityService } from "./entity.service"
 import type { Profile, CreateProfileDTO, UpdateProfileDTO } from "../types/entities"
-import type { ProfileHierarchy } from "../types/search"
+import type { ProfileHierarchyResponse } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
@@ -181,7 +181,59 @@ export const createProfileService = () => {
   }
 
   /**
-   * Gets profile hierarchy (profile with its entity hierarchy)
+   * Gets profile hierarchy starting from logged-in user's entity
+   * @param profileId - Profile ID
+   * @param user - Authenticated user context
+   * @param options - Optional depth for entity hierarchy
+   * @returns Profile hierarchy response with entity hierarchy from user's entity
+   */
+  const getProfileHierarchyFromUserEntity = async (
+    profileId: string,
+    user: AuthContext,
+    options?: { depth?: number }
+  ): Promise<ProfileHierarchyResponse> => {
+    try {
+      const profile = await getProfileById(profileId, user)
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId)
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      let entityHierarchy = undefined
+
+      // If profile has an entity, get hierarchy from user's entity to profile's entity
+      if (profile.entity_id) {
+        await validateEntityAccess(user.entityId, profile.entity_id, "entity")
+        const hierarchy = await entityService.getEntityHierarchy(user.entityId, user, { depth: options?.depth })
+        entityHierarchy = entityService.markSelectedEntity(hierarchy, profile.entity_id)
+      }
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "profile",
+          id: profile.id,
+          name: profile.name,
+          entityId: profile.entity_id,
+        },
+        profile,
+        entityHierarchy,
+      }
+    } catch (error) {
+      logger.error("Error fetching profile hierarchy:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  /**
+   * Gets profile hierarchy (legacy method - kept for backward compatibility)
    * @param profileId - Profile ID
    * @param user - Authenticated user context
    * @param options - Optional depth for entity hierarchy
@@ -191,35 +243,11 @@ export const createProfileService = () => {
     profileId: string,
     user: AuthContext,
     options?: { depth?: number }
-  ): Promise<ProfileHierarchy> => {
-    try {
-      const profile = await getProfileById(profileId, user)
-
-      const result: ProfileHierarchy = {
-        ...profile,
-        entity: undefined,
-      }
-
-      // If profile has an entity, get its hierarchy
-      if (profile.entity_id) {
-        await validateEntityAccess(user.entityId, profile.entity_id, "entity")
-        const entityHierarchy = await entityService.getEntityHierarchy(
-          profile.entity_id,
-          user,
-          { depth: options?.depth }
-        )
-        result.entity = {
-          id: entityHierarchy.id,
-          name: entityHierarchy.name,
-          children: (entityHierarchy as any).children || [],
-        }
-      }
-
-      return result
-    } catch (error) {
-      logger.error("Error fetching profile hierarchy:", error)
-      if (error instanceof AppError) throw error
-      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+  ): Promise<any> => {
+    const result = await getProfileHierarchyFromUserEntity(profileId, user, options)
+    return {
+      ...result.profile,
+      entity: result.entityHierarchy,
     }
   }
 
@@ -230,6 +258,7 @@ export const createProfileService = () => {
     deleteProfile,
     listProfiles,
     getProfileHierarchy,
+    getProfileHierarchyFromUserEntity,
   }
 }
 
