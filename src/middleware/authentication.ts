@@ -10,7 +10,7 @@ import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
  * @param res - Express response object
  * @param next - Express next function
  */
-export const authenticate = (req: Request, res: Response, next: NextFunction) => {
+export const authenticate = (req: Request, _res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization
 

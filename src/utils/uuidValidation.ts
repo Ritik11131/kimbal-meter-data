@@ -16,19 +16,20 @@ export const isValidUUID = (uuid: string): boolean => {
  * Validates all UUID parameters in req.params
  */
 export const validateUUIDParams = (paramNames?: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     const paramsToValidate = paramNames || Object.keys(req.params)
     
     for (const paramName of paramsToValidate) {
       const paramValue = req.params[paramName]
       // Only validate if paramValue exists and is not empty
       if (paramValue && paramValue.trim() !== "" && !isValidUUID(paramValue)) {
-        return sendError(
+        sendError(
           res,
           HTTP_STATUS.BAD_REQUEST,
           `Invalid UUID format for parameter: ${paramName}. Expected a valid UUID, got: ${paramValue}`,
           req.path
         )
+        return
       }
     }
     

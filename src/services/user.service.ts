@@ -2,7 +2,7 @@ import { createUserRepository } from "../repositories/user.repository"
 import { createRoleRepository } from "../repositories/role.repository"
 import { createEntityRepository } from "../repositories/entity.repository"
 import type { User, CreateUserDTO, UpdateUserDTO, UserWithoutPassword } from "../types/users"
-import type { UserTree, UserHierarchyResponse, EntityTreeWithSelection, UserPathResponse, PathItem } from "../types/search"
+import type { UserTree, UserHierarchyResponse, UserPathResponse, PathItem } from "../types/search"
 import { createEntityService } from "./entity.service"
 import { CryptoUtil } from "../utils/cryptography"
 import { AppError } from "../middleware/errorHandler"
@@ -25,6 +25,7 @@ export const createUserService = () => {
    * @returns User object without password fields
    */
   const excludePassword = (user: User): UserWithoutPassword => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password_hash, salt, ...userWithoutPassword } = user
     return userWithoutPassword as UserWithoutPassword
   }
@@ -229,6 +230,7 @@ export const createUserService = () => {
     
     // Create user tree nodes
     users.forEach(user => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password_hash, salt, ...userWithoutPassword } = user
       userMap.set(user.id, {
         ...userWithoutPassword,

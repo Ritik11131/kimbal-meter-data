@@ -340,7 +340,7 @@ export const createEntityService = () => {
       const pathEntities = await entityRepository.findEntityPath(user.entityId, selectedEntityId);
 
       // Convert to PathItem format
-      const path: PathItem[] = pathEntities.map((entity, index) => ({
+      const path: PathItem[] = pathEntities.map((entity) => ({
         id: entity.id,
         name: entity.name,
         type: "entity" as const,

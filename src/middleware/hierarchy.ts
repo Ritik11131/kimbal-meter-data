@@ -11,7 +11,7 @@ import type { AuthContext } from "../types/common"
  * @param entityIdParam - Name of the param containing entity ID (default: "id")
  */
 export const enforceEntityAccess = (entityIdParam: string = "id") => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
         throw new AppError(ERROR_MESSAGES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED)
@@ -43,7 +43,7 @@ export const enforceEntityAccess = (entityIdParam: string = "id") => {
  * @param paramName - Name of the query/body parameter containing entity ID (default: "entityId")
  */
 export const enforceEntityAccessQuery = (paramName: string = "entityId") => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
         throw new AppError(ERROR_MESSAGES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED)
@@ -91,7 +91,7 @@ export const enforceEntityAccessQuery = (paramName: string = "entityId") => {
  * Validates entity_id in request body before allowing entity creation
  */
 export const validateParentEntityAccess = () => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
         throw new AppError(ERROR_MESSAGES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED)
@@ -126,7 +126,7 @@ export const validateParentEntityAccess = () => {
  * @param idParam - Name of the param containing resource ID (default: "id")
  */
 export const enforceResourceEntityAccess = (resourceType: "user" | "role" | "profile" | "meter", idParam: string = "id") => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
         throw new AppError(ERROR_MESSAGES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED)

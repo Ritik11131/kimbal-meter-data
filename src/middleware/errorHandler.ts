@@ -24,7 +24,7 @@ export class AppError extends Error {
  * @param res - Express response object
  * @param next - Express next function
  */
-export const errorHandler = (error: Error, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (error: Error, req: Request, res: Response, _next: NextFunction) => {
   logger.error("Error:", error)
 
   if (error instanceof AppError) {

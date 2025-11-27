@@ -24,7 +24,7 @@ router.get(
 router.get(
   "/:type/:id/hierarchy",
   authenticate,
-  (req, res, next) => {
+  (req, res, next): void => {
     // Dynamically require permission based on resource type
     const { type } = req.params
     let module: string
@@ -46,12 +46,13 @@ router.get(
         module = MODULES.METER
         break
       default:
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "Invalid resource type",
           timestamp: Date.now(),
           path: req.path,
         })
+        return
     }
 
     requireReadPermission([module])(req, res, (err?: any) => {

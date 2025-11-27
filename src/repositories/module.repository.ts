@@ -1,7 +1,6 @@
 import { createBaseRepository } from "./base.repository"
 import { Module } from "../models/Module"
 import type { Module as ModuleType, CreateModuleDTO, UpdateModuleDTO } from "../types/entities"
-import { Op } from "sequelize"
 import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createModuleRepository = () => {

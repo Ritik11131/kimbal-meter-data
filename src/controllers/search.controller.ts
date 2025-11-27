@@ -88,16 +88,8 @@ export const globalSearch = async (req: Request, res: Response) => {
 export const getHierarchy = async (req: Request, res: Response) => {
   try {
     const { type, id } = req.params
-    const extracted = extractQueryParams(req, {
-      defaultPage: undefined,
-      defaultLimit: undefined,
-      customFields: ["depth", "paginateRootChildren"],
-    })
-
-    const depth = extracted.depth as number | undefined
-    const page = extracted.page as number | undefined
-    const limit = extracted.limit as number | undefined
-    const paginateRootChildren = extracted.paginateRootChildren as boolean | undefined
+    // Note: depth, page, limit, paginateRootChildren are no longer used for path-only hierarchy
+    // They are kept in extractQueryParams for backward compatibility but not used
 
     // Validate resource type
     const validTypes: SearchResourceType[] = ["entity", "user", "profile", "role", "meter"]
