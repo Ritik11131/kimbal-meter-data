@@ -2,17 +2,26 @@
 
 ## Overview
 
-This guide provides complete documentation for integrating the Global Search API into your frontend application. The search API allows users to search across **Entities**, **Users**, **Profiles**, and **Roles** with category-wise results and hierarchy support.
+This guide provides complete documentation for integrating the Global Search API into your frontend application. The search API allows users to search across **Entities**, **Users**, **Profiles**, **Roles**, and **Meters** with category-wise results and hierarchy support.
 
-### Key Feature: Context-Aware Hierarchy
+### Key Feature: Path-Only Hierarchy
 
-**Important**: The hierarchy always starts from the **logged-in user's entity**, not from the selected resource. This provides complete context showing:
+**Important**: The hierarchy endpoint returns **ONLY the exact path** from the logged-in user's entity to the selected resource. This means:
 
-- **Root Admin (ETL Admin)**: Hierarchy starts from ETL Admin, showing the complete organization structure
-- **KMP Admin**: Hierarchy starts from KMP Energy, showing only their accessible branch
-- **Ideal Energy Admin**: Hierarchy starts from Ideal Energy, showing only their sub-entities
+- **No siblings** - Only the direct path is shown
+- **No other children** - Only entities/users in the path to the selected resource
+- **Linear path structure** - Returns a simple array, not a full tree
 
-The selected resource is **highlighted** with `isSelected: true` in the hierarchy tree, making it easy to see where it fits in your organizational structure.
+**Example**: If searching for a meter "X" under entity "Patanjali Customer":
+- **Shows**: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer → Meter X
+- **Does NOT show**: Other children of KMP Admin, other children of Patanjali Customer, or other meters
+
+The hierarchy always starts from the **logged-in user's entity**:
+- **Root Admin (ETL Admin)**: Path starts from ETL Admin
+- **KMP Admin**: Path starts from KMP Energy
+- **Ideal Energy Admin**: Path starts from Ideal Energy
+
+The selected resource is **highlighted** with `isSelected: true` in the path array.
 
 ---
 
@@ -33,7 +42,7 @@ The selected resource is **highlighted** with `isSelected: true` in the hierarch
 
 **Endpoint**: `GET /api/search`
 
-**Purpose**: Search across all resource types (Entities, Users, Profiles, Roles)
+**Purpose**: Search across all resource types (Entities, Users, Profiles, Roles, Meters)
 
 **Authentication**: Required (JWT token in Authorization header)
 
@@ -41,8 +50,8 @@ The selected resource is **highlighted** with `isSelected: true` in the hierarch
 - `q` (required): Search query string (min 1, max 255 characters)
 - `type` (optional): Filter by resource type(s)
   - Single: `type=entity`
-  - Multiple: `type=entity,user`
-  - Valid values: `entity`, `user`, `profile`, `role`
+  - Multiple: `type=entity,user,meter`
+  - Valid values: `entity`, `user`, `profile`, `role`, `meter`
 - `page` (optional): Page number (default: 1, min: 1)
 - `limit` (optional): Items per page (default: 10, min: 1, max: 100)
 
@@ -56,6 +65,9 @@ GET /api/search?q=energy&type=entity,user&page=1&limit=10
 
 # Search only profiles
 GET /api/search?q=admin&type=profile
+
+# Search only meters
+GET /api/search?q=meter&type=meter
 ```
 
 ---
@@ -64,27 +76,29 @@ GET /api/search?q=admin&type=profile
 
 **Endpoint**: `GET /api/search/:type/:id/hierarchy`
 
-**Purpose**: Get complete hierarchy starting from the logged-in user's entity, showing where the selected resource fits in the hierarchy
+**Purpose**: Get the **exact path** from the logged-in user's entity to the selected resource (path-only, no siblings or other children)
 
 **Important Behavior**:
+- **Returns ONLY the direct path** - no siblings, no other children
 - **Hierarchy always starts from the logged-in user's entity** (not from the selected resource)
-- If logged in as **Root Admin (ETL Admin)**, hierarchy starts from ETL Admin
-- If logged in as **KMP Admin**, hierarchy starts from KMP Admin
-- If logged in as **Ideal Energy**, hierarchy starts from Ideal Energy
-- The selected resource is highlighted/marked within the hierarchy tree
-- This provides context showing the complete hierarchy path from your root entity to the selected resource
+- If logged in as **Root Admin (ETL Admin)**, path starts from ETL Admin
+- If logged in as **KMP Admin**, path starts from KMP Admin
+- If logged in as **Ideal Energy**, path starts from Ideal Energy
+- The selected resource is highlighted with `isSelected: true` in the path array
+- Returns a **linear path array**, not a tree structure
+
+**Example Path**: 
+- Searching for meter "X" under "Patanjali Customer":
+- **Path**: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer → Meter X
+- **NOT shown**: Other children of KMP Admin, other children of Patanjali Customer, other meters
 
 **Authentication**: Required (JWT token in Authorization header)
 
 **Path Parameters**:
-- `type`: Resource type (`entity`, `user`, `profile`, `role`)
+- `type`: Resource type (`entity`, `user`, `profile`, `role`, `meter`)
 - `id`: Resource ID (UUID) - The selected resource to find in hierarchy
 
-**Query Parameters**:
-- `depth` (optional): Maximum depth levels (default: unlimited)
-- `page` (optional): Page number (for paginated root children)
-- `limit` (optional): Items per page (for paginated root children)
-- `paginateRootChildren` (optional): Enable pagination for root's direct children (boolean)
+**Query Parameters**: None (path-only results don't support pagination or depth limits)
 
 **Example Requests**:
 ```bash
@@ -96,14 +110,17 @@ GET /api/search/user/550e8400-e29b-41d4-a716-446655440000/hierarchy?depth=3
 
 # Get profile hierarchy
 GET /api/search/profile/550e8400-e29b-41d4-a716-446655440000/hierarchy
+
+# Get meter hierarchy
+GET /api/search/meter/550e8400-e29b-41d4-a716-446655440000/hierarchy
 ```
 
 **Response Structure**:
-- The hierarchy tree starts from `userEntity` (logged-in user's entity)
-- The selected resource is marked with `isSelected: true` in the response
-- For entities: Shows entity hierarchy tree
-- For users: Shows user hierarchy tree with entity context
-- For profiles/roles: Shows the entity hierarchy they belong to
+- Returns a **path array** (not a tree) starting from `userEntity` (logged-in user's entity)
+- The selected resource is marked with `isSelected: true` in the path array
+- For entities: Shows entity path array
+- For users: Shows entity path + user path arrays
+- For profiles/roles/meters: Shows entity path + the resource itself
 
 ---
 
@@ -129,6 +146,7 @@ GET /api/search/profile/550e8400-e29b-41d4-a716-446655440000/hierarchy
 │    - Users (8)                                               │
 │    - Profiles (3)                                            │
 │    - Roles (5)                                               │
+│    - Meters (12)                                             │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
@@ -141,18 +159,19 @@ GET /api/search/profile/550e8400-e29b-41d4-a716-446655440000/hierarchy
 │ 5. Frontend calls GET /api/search/:type/:id/hierarchy        │
 │    API automatically:                                        │
 │    - Gets logged-in user's entity (from JWT)                │
-│    - Builds hierarchy from user's entity                    │
-│    - Finds selected resource in hierarchy                   │
+│    - Finds exact path from user's entity to resource        │
+│    - Returns path array (no siblings, no other children)   │
 │    - Marks selected resource with isSelected: true          │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 6. Display hierarchy tree view starting from:                │
+│ 6. Display path view (linear, not tree) starting from:        │
 │    - Root Admin → if logged in as Root Admin                │
 │    - KMP Admin → if logged in as KMP Admin                  │
 │    - Ideal Energy → if logged in as Ideal Energy            │
-│    Selected resource is highlighted in the tree              │
+│    Selected resource is highlighted in the path              │
+│    Example: Ritik → KMP → Patanjali → Consumer → Meter      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -174,6 +193,7 @@ interface SearchResult {
   users: PaginatedResult<User>;
   profiles: PaginatedResult<Profile>;
   roles: PaginatedResult<Role>;
+  meters: PaginatedResult<Meter>;
   pagination: {
     totalResults: number;
     hasMore: boolean;
@@ -234,7 +254,7 @@ export const SearchBar = () => {
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search entities, users, profiles, roles..."
+          placeholder="Search entities, users, profiles, roles, meters..."
         className="search-input"
       />
       {loading && <div className="loading-spinner">Searching...</div>}
@@ -353,6 +373,28 @@ export const SearchResults = ({ results }: SearchResultsProps) => {
         </div>
       )}
 
+      {/* Meters Section */}
+      {results.meters.total > 0 && (
+        <div className="result-category">
+          <h3>Meters ({results.meters.total})</h3>
+          <ul>
+            {results.meters.data.map((meter) => (
+              <li
+                key={meter.id}
+                onClick={() => handleResultClick('meter', meter.id)}
+                className="result-item"
+              >
+                <div className="result-name">{meter.name}</div>
+                <div className="result-meta">{meter.meter_type}</div>
+              </li>
+            ))}
+          </ul>
+          {results.meters.totalPages > 1 && (
+            <button onClick={() => loadMore('meter')}>Load More</button>
+          )}
+        </div>
+      )}
+
       {results.pagination.totalResults === 0 && (
         <div className="no-results">No results found</div>
       )}
@@ -370,11 +412,10 @@ Create a function to fetch hierarchy and display it:
 ```typescript
 // utils/searchApi.ts
 export const fetchHierarchy = async (
-  type: 'entity' | 'user' | 'profile' | 'role',
-  id: string,
-  depth?: number
+  type: 'entity' | 'user' | 'profile' | 'role' | 'meter',
+  id: string
 ) => {
-  const url = `/api/search/${type}/${id}/hierarchy${depth ? `?depth=${depth}` : ''}`;
+  const url = `/api/search/${type}/${id}/hierarchy`;
   
   const response = await fetch(url, {
     headers: {
@@ -392,85 +433,150 @@ export const fetchHierarchy = async (
 };
 
 // components/HierarchyView.tsx
+interface PathItem {
+  id: string;
+  name: string;
+  type: 'entity' | 'user' | 'profile' | 'role' | 'meter';
+  isSelected: boolean;
+  email_id?: string;
+  email?: string;
+  entityId?: string;
+}
+
+interface EntityPathResponse {
+  userEntity: { id: string; name: string; email_id?: string };
+  selectedResource: { type: 'entity'; id: string; name: string };
+  path: PathItem[];
+}
+
+interface UserPathResponse {
+  userEntity: { id: string; name: string; email_id?: string };
+  selectedResource: { type: 'user'; id: string; name: string; entityId: string };
+  entityPath: PathItem[];
+  userPath: PathItem[];
+}
+
+interface ProfilePathResponse {
+  userEntity: { id: string; name: string; email_id?: string };
+  selectedResource: { type: 'profile'; id: string; name: string; entityId: string | null };
+  profile: any;
+  path: PathItem[];
+}
+
+interface RolePathResponse {
+  userEntity: { id: string; name: string; email_id?: string };
+  selectedResource: { type: 'role'; id: string; name: string; entityId: string | null };
+  role: any;
+  path: PathItem[];
+}
+
+interface MeterPathResponse {
+  userEntity: { id: string; name: string; email_id?: string };
+  selectedResource: { type: 'meter'; id: string; name: string; entityId: string };
+  meter: any;
+  path: PathItem[];
+}
+
 interface HierarchyViewProps {
-  hierarchy: EntityHierarchy | UserHierarchy | ProfileHierarchy | RoleHierarchy;
+  hierarchy: EntityPathResponse | UserPathResponse | ProfilePathResponse | RolePathResponse | MeterPathResponse;
   type: string;
 }
 
 export const HierarchyView = ({ hierarchy, type }: HierarchyViewProps) => {
-  const renderEntityHierarchy = (entity: EntityHierarchy, level = 0) => {
+  const renderPath = (path: PathItem[]) => {
     return (
-      <div key={entity.id} style={{ marginLeft: `${level * 20}px` }}>
-        <div className="hierarchy-item">
-          <span className="hierarchy-icon">📁</span>
-          <span className="hierarchy-name">{entity.name}</span>
-          <span className="hierarchy-meta">{entity.email_id}</span>
-        </div>
-        {entity.children && entity.children.map((child) => 
-          renderEntityHierarchy(child, level + 1)
-        )}
-      </div>
-    );
-  };
-
-  const renderUserHierarchy = (user: UserHierarchy, level = 0) => {
-    return (
-      <div key={user.id} style={{ marginLeft: `${level * 20}px` }}>
-        <div className="hierarchy-item">
-          <span className="hierarchy-icon">👤</span>
-          <span className="hierarchy-name">{user.name}</span>
-          <span className="hierarchy-meta">{user.email}</span>
-          {user.entity && (
-            <span className="hierarchy-entity">({user.entity.name})</span>
-          )}
-        </div>
-        {user.children && user.children.map((child) => 
-          renderUserHierarchy(child, level + 1)
-        )}
-      </div>
-    );
-  };
-
-  const renderProfileHierarchy = (profile: ProfileHierarchy) => {
-    return (
-      <div>
-        <div className="hierarchy-item">
-          <span className="hierarchy-icon">📋</span>
-          <span className="hierarchy-name">{profile.name}</span>
-        </div>
-        {profile.entity && (
-          <div style={{ marginLeft: '20px' }}>
-            <h4>Entity Hierarchy:</h4>
-            {renderEntityHierarchy(profile.entity)}
+      <div className="path-container">
+        {path.map((item, index) => (
+          <div key={item.id} className="path-item-container">
+            <div className={`path-item ${item.isSelected ? 'selected' : ''}`}>
+              <span className="path-icon">
+                {item.type === 'entity' && '📁'}
+                {item.type === 'user' && '👤'}
+                {item.type === 'profile' && '📋'}
+                {item.type === 'role' && '🔐'}
+                {item.type === 'meter' && '⚡'}
+              </span>
+              <span className="path-name">{item.name}</span>
+              {item.email_id && <span className="path-meta">{item.email_id}</span>}
+              {item.email && <span className="path-meta">{item.email}</span>}
+              {item.isSelected && <span className="path-badge">Selected</span>}
+            </div>
+            {index < path.length - 1 && <div className="path-arrow">→</div>}
           </div>
-        )}
+        ))}
       </div>
     );
   };
 
-  const renderRoleHierarchy = (role: RoleHierarchy) => {
+  const renderEntityPath = (hierarchy: EntityPathResponse) => {
     return (
-      <div>
-        <div className="hierarchy-item">
-          <span className="hierarchy-icon">🔐</span>
-          <span className="hierarchy-name">{role.name}</span>
+      <div className="hierarchy-view">
+        <div className="path-header">
+          <h3>Path from {hierarchy.userEntity.name}</h3>
         </div>
-        {role.entity && (
-          <div style={{ marginLeft: '20px' }}>
-            <h4>Entity Hierarchy:</h4>
-            {renderEntityHierarchy(role.entity)}
-          </div>
-        )}
+        {renderPath(hierarchy.path)}
+      </div>
+    );
+  };
+
+  const renderUserPath = (hierarchy: UserPathResponse) => {
+    return (
+      <div className="hierarchy-view">
+        <div className="path-header">
+          <h3>Path from {hierarchy.userEntity.name}</h3>
+        </div>
+        <div className="path-section">
+          <h4>Entity Path:</h4>
+          {renderPath(hierarchy.entityPath)}
+        </div>
+        <div className="path-section">
+          <h4>User Path:</h4>
+          {renderPath(hierarchy.userPath)}
+        </div>
+      </div>
+    );
+  };
+
+  const renderProfilePath = (hierarchy: ProfilePathResponse) => {
+    return (
+      <div className="hierarchy-view">
+        <div className="path-header">
+          <h3>Path from {hierarchy.userEntity.name}</h3>
+        </div>
+        {renderPath(hierarchy.path)}
+      </div>
+    );
+  };
+
+  const renderRolePath = (hierarchy: RolePathResponse) => {
+    return (
+      <div className="hierarchy-view">
+        <div className="path-header">
+          <h3>Path from {hierarchy.userEntity.name}</h3>
+        </div>
+        {renderPath(hierarchy.path)}
+      </div>
+    );
+  };
+
+  const renderMeterPath = (hierarchy: MeterPathResponse) => {
+    return (
+      <div className="hierarchy-view">
+        <div className="path-header">
+          <h3>Path from {hierarchy.userEntity.name}</h3>
+        </div>
+        {renderPath(hierarchy.path)}
       </div>
     );
   };
 
   return (
     <div className="hierarchy-view">
-      {type === 'entity' && renderEntityHierarchy(hierarchy as EntityHierarchy)}
-      {type === 'user' && renderUserHierarchy(hierarchy as UserHierarchy)}
-      {type === 'profile' && renderProfileHierarchy(hierarchy as ProfileHierarchy)}
-      {type === 'role' && renderRoleHierarchy(hierarchy as RoleHierarchy)}
+      {type === 'entity' && renderEntityPath(hierarchy as EntityPathResponse)}
+      {type === 'user' && renderUserPath(hierarchy as UserPathResponse)}
+      {type === 'profile' && renderProfilePath(hierarchy as ProfilePathResponse)}
+      {type === 'role' && renderRolePath(hierarchy as RolePathResponse)}
+      {type === 'meter' && renderMeterPath(hierarchy as MeterPathResponse)}
     </div>
   );
 };
@@ -645,13 +751,13 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-### Example 3: Get Entity Hierarchy
+### Example 3: Get Entity Path
 
 **Scenario**: User logged in as "KMP Admin" (entityId: `kmp-entity-id`), searching for "Ideal Energy" (entityId: `ideal-entity-id`)
 
 **Request**:
 ```http
-GET /api/search/entity/ideal-entity-id/hierarchy?depth=3
+GET /api/search/entity/ideal-entity-id/hierarchy
 Authorization: Bearer <jwt_token>
 ```
 
@@ -659,7 +765,7 @@ Authorization: Bearer <jwt_token>
 ```json
 {
   "success": true,
-  "message": "Entity hierarchy retrieved",
+  "message": "Entity path retrieved",
   "data": {
     "userEntity": {
       "id": "kmp-entity-id",
@@ -671,50 +777,22 @@ Authorization: Bearer <jwt_token>
       "id": "ideal-entity-id",
       "name": "Ideal Energy"
     },
-    "hierarchy": {
-      "id": "kmp-entity-id",
-      "name": "KMP Energy",
-      "email_id": "contact@kmpenergy.com",
-      "mobile_no": "+1234567890",
-      "entity_id": null,
-      "profile_id": "770e8400-e29b-41d4-a716-446655440002",
-      "attributes": null,
-      "created_by": "880e8400-e29b-41d4-a716-446655440003",
-      "creation_time": "2024-01-15T10:30:00Z",
-      "last_update_on": "2024-01-15T10:30:00Z",
-      "isSelected": false,
-      "children": [
-        {
-          "id": "ideal-entity-id",
-          "name": "Ideal Energy",
-          "email_id": "contact@idealenergy.com",
-          "mobile_no": "+1234567891",
-          "entity_id": "kmp-entity-id",
-          "profile_id": "770e8400-e29b-41d4-a716-446655440002",
-          "attributes": null,
-          "created_by": "880e8400-e29b-41d4-a716-446655440003",
-          "creation_time": "2024-01-16T10:30:00Z",
-          "last_update_on": "2024-01-16T10:30:00Z",
-          "isSelected": true,
-          "children": [
-            {
-              "id": "770e8400-e29b-41d4-a716-446655440004",
-              "name": "Patanjali Energy",
-              "email_id": "contact@patanjali.com",
-              "mobile_no": "+1234567892",
-              "entity_id": "ideal-entity-id",
-              "profile_id": "770e8400-e29b-41d4-a716-446655440002",
-              "attributes": null,
-              "created_by": "880e8400-e29b-41d4-a716-446655440003",
-              "creation_time": "2024-01-17T10:30:00Z",
-              "last_update_on": "2024-01-17T10:30:00Z",
-              "isSelected": false,
-              "children": []
-            }
-          ]
-        }
-      ]
-    }
+    "path": [
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Energy",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@kmpenergy.com"
+      },
+      {
+        "id": "ideal-entity-id",
+        "name": "Ideal Energy",
+        "type": "entity",
+        "isSelected": true,
+        "email_id": "contact@idealenergy.com"
+      }
+    ]
   },
   "timestamp": 1705564800000,
   "path": "/api/search/entity/ideal-entity-id/hierarchy"
@@ -722,13 +800,14 @@ Authorization: Bearer <jwt_token>
 ```
 
 **Note**: 
-- Hierarchy starts from logged-in user's entity (KMP Energy)
+- Path starts from logged-in user's entity (KMP Energy)
 - Selected entity (Ideal Energy) is marked with `isSelected: true`
-- Complete path from root to selected resource is visible
+- **Only the direct path is shown** - no siblings, no other children
+- Returns a linear array, not a tree structure
 
 ---
 
-### Example 4: Get User Hierarchy
+### Example 4: Get User Path
 
 **Scenario**: User logged in as "KMP Admin", searching for user "Jane Smith" who belongs to "Ideal Energy" entity
 
@@ -742,11 +821,12 @@ Authorization: Bearer <jwt_token>
 ```json
 {
   "success": true,
-  "message": "User hierarchy retrieved",
+  "message": "User path retrieved",
   "data": {
     "userEntity": {
       "id": "kmp-entity-id",
-      "name": "KMP Energy"
+      "name": "KMP Energy",
+      "email_id": "contact@kmpenergy.com"
     },
     "selectedResource": {
       "type": "user",
@@ -754,44 +834,40 @@ Authorization: Bearer <jwt_token>
       "name": "Jane Smith",
       "entityId": "ideal-entity-id"
     },
-    "entityHierarchy": {
-      "id": "kmp-entity-id",
-      "name": "KMP Energy",
-      "isSelected": false,
-      "children": [
-        {
-          "id": "ideal-entity-id",
-          "name": "Ideal Energy",
-          "isSelected": true,
-          "children": []
-        }
-      ]
-    },
-    "userHierarchy": {
-      "id": "john-user-id",
-      "name": "John Doe",
-      "email": "john.doe@example.com",
-      "entity_id": "ideal-entity-id",
-      "isSelected": false,
-      "entity": {
-        "id": "ideal-entity-id",
-        "name": "Ideal Energy"
+    "entityPath": [
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Energy",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@kmpenergy.com"
       },
-      "children": [
-        {
-          "id": "jane-user-id",
-          "name": "Jane Smith",
-          "email": "jane.smith@example.com",
-          "entity_id": "ideal-entity-id",
-          "isSelected": true,
-          "entity": {
-            "id": "ideal-entity-id",
-            "name": "Ideal Energy"
-          },
-          "children": []
-        }
-      ]
-    }
+      {
+        "id": "ideal-entity-id",
+        "name": "Ideal Energy",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@idealenergy.com"
+      }
+    ],
+    "userPath": [
+      {
+        "id": "john-user-id",
+        "name": "John Doe",
+        "type": "user",
+        "isSelected": false,
+        "email": "john.doe@example.com",
+        "entityId": "ideal-entity-id"
+      },
+      {
+        "id": "jane-user-id",
+        "name": "Jane Smith",
+        "type": "user",
+        "isSelected": true,
+        "email": "jane.smith@example.com",
+        "entityId": "ideal-entity-id"
+      }
+    ]
   },
   "timestamp": 1705564800000,
   "path": "/api/search/user/jane-user-id/hierarchy"
@@ -799,13 +875,14 @@ Authorization: Bearer <jwt_token>
 ```
 
 **Note**:
-- Shows entity hierarchy from logged-in user's entity (KMP Energy) to selected user's entity (Ideal Energy)
-- Shows user hierarchy starting from the root user in that entity
+- Shows entity path from logged-in user's entity (KMP Energy) to selected user's entity (Ideal Energy)
+- Shows user path from root user to selected user (via created_by relationship)
 - Selected user is marked with `isSelected: true`
+- **Only the direct path is shown** - no siblings, no other children
 
 ---
 
-### Example 5: Get Profile Hierarchy
+### Example 5: Get Profile Path
 
 **Scenario**: User logged in as "KMP Admin", searching for profile "Tenant Profile" that belongs to "Ideal Energy" entity
 
@@ -819,7 +896,7 @@ Authorization: Bearer <jwt_token>
 ```json
 {
   "success": true,
-  "message": "Profile hierarchy retrieved",
+  "message": "Profile path retrieved",
   "data": {
     "userEntity": {
       "id": "kmp-entity-id",
@@ -841,19 +918,29 @@ Authorization: Bearer <jwt_token>
       "creation_time": "2024-01-17T08:00:00Z",
       "last_update_on": "2024-01-17T08:00:00Z"
     },
-    "entityHierarchy": {
-      "id": "kmp-entity-id",
-      "name": "KMP Energy",
-      "isSelected": false,
-      "children": [
-        {
-          "id": "ideal-entity-id",
-          "name": "Ideal Energy",
-          "isSelected": true,
-          "children": []
-        }
-      ]
-    }
+    "path": [
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Energy",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@kmpenergy.com"
+      },
+      {
+        "id": "ideal-entity-id",
+        "name": "Ideal Energy",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@idealenergy.com"
+      },
+      {
+        "id": "profile-id",
+        "name": "Tenant Profile",
+        "type": "profile",
+        "isSelected": true,
+        "entityId": "ideal-entity-id"
+      }
+    ]
   },
   "timestamp": 1705564800000,
   "path": "/api/search/profile/profile-id/hierarchy"
@@ -861,9 +948,99 @@ Authorization: Bearer <jwt_token>
 ```
 
 **Note**:
-- Shows entity hierarchy from logged-in user's entity (KMP Energy) to profile's entity (Ideal Energy)
-- Profile's entity is marked with `isSelected: true`
-- Complete context showing where the profile fits in the organizational structure
+- Shows entity path from logged-in user's entity (KMP Energy) to profile's entity (Ideal Energy)
+- Profile is marked with `isSelected: true`
+- **Only the direct path is shown** - no siblings, no other children
+
+---
+
+### Example 6: Get Meter Path
+
+**Scenario**: User logged in as "Root Admin (Ritik)", searching for meter "Meter X" under entity "X Consumer"
+
+**Request**:
+```http
+GET /api/search/meter/meter-x-id/hierarchy
+Authorization: Bearer <jwt_token>
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Meter path retrieved",
+  "data": {
+    "userEntity": {
+      "id": "ritik-entity-id",
+      "name": "Ritik (Root)",
+      "email_id": "ritik@example.com"
+    },
+    "selectedResource": {
+      "type": "meter",
+      "id": "meter-x-id",
+      "name": "Meter X",
+      "entityId": "x-consumer-entity-id"
+    },
+    "meter": {
+      "id": "meter-x-id",
+      "name": "Meter X",
+      "entity_id": "x-consumer-entity-id",
+      "meter_type": "PHYSICAL",
+      "attributes": null,
+      "tb_ref_id": null,
+      "tb_token": null,
+      "created_by": "880e8400-e29b-41d4-a716-446655440003",
+      "creation_time": "2024-01-20T10:00:00Z",
+      "last_update_on": "2024-01-20T10:00:00Z"
+    },
+    "path": [
+      {
+        "id": "ritik-entity-id",
+        "name": "Ritik (Root)",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "ritik@example.com"
+      },
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Admin",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@kmpenergy.com"
+      },
+      {
+        "id": "patanjali-entity-id",
+        "name": "Patanjali Customer",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@patanjali.com"
+      },
+      {
+        "id": "x-consumer-entity-id",
+        "name": "X Consumer",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@xconsumer.com"
+      },
+      {
+        "id": "meter-x-id",
+        "name": "Meter X",
+        "type": "meter",
+        "isSelected": true,
+        "entityId": "x-consumer-entity-id"
+      }
+    ]
+  },
+  "timestamp": 1705564800000,
+  "path": "/api/search/meter/meter-x-id/hierarchy"
+}
+```
+
+**Note**:
+- Shows exact path from logged-in user's entity (Ritik Root) to meter's entity (X Consumer), then the meter itself
+- Meter is marked with `isSelected: true`
+- **Only the direct path is shown** - no siblings, no other children
+- Example: Ritik → KMP Admin → Patanjali Customer → X Consumer → Meter X
 
 ---
 
@@ -912,7 +1089,7 @@ GET /api/search/invalid/550e8400-e29b-41d4-a716-446655440000/hierarchy
 ```json
 {
   "success": false,
-  "error": "Invalid resource type. Must be one of: entity, user, profile, role",
+  "error": "Invalid resource type. Must be one of: entity, user, profile, role, meter",
   "timestamp": 1705564800000,
   "path": "/api/search/invalid/550e8400-e29b-41d4-a716-446655440000/hierarchy"
 }
@@ -1030,17 +1207,20 @@ const handleSearch = async (query: string) => {
 - **Empty State**: Show friendly message when no results found
 - **Pagination**: Show "Load More" or pagination controls for large result sets
 
-### 3. Hierarchy View
+### 3. Hierarchy View (Path Display)
 
-- **Tree Structure**: Use indentation or tree lines to show hierarchy
-- **Expand/Collapse**: Allow users to expand/collapse branches
+- **Linear Path**: Display as a horizontal or vertical path (not a tree)
+- **Path Separator**: Use arrows (→) or connectors between path items
 - **Icons**: Use different icons for different resource types
   - 📁 for Entities
   - 👤 for Users
   - 📋 for Profiles
   - 🔐 for Roles
-- **Breadcrumbs**: Show path to current item
-- **Loading State**: Show loading indicator while fetching hierarchy
+  - ⚡ for Meters
+- **Highlighting**: Clearly highlight the selected resource with `isSelected: true`
+- **Breadcrumbs**: Show path as breadcrumbs (Home > KMP > Ideal > Profile)
+- **Loading State**: Show loading indicator while fetching path
+- **Path Format**: Display as: `Entity 1 → Entity 2 → Entity 3 → Selected Resource`
 
 ### 4. Mobile Responsiveness
 
@@ -1182,7 +1362,7 @@ export const GlobalSearch: React.FC = () => {
           type="text"
           value={state.query}
           onChange={(e) => setState(prev => ({ ...prev, query: e.target.value }))}
-          placeholder="Search entities, users, profiles, roles..."
+          placeholder="Search entities, users, profiles, roles, meters..."
           className="search-input"
         />
         {state.loading && <div className="loading">Searching...</div>}
@@ -1220,22 +1400,24 @@ export const GlobalSearch: React.FC = () => {
    - User types → Debounced API call → Display category-wise results → Click result → Show hierarchy
 
 2. **API Endpoints**:
-   - `GET /api/search` - Global search
-   - `GET /api/search/:type/:id/hierarchy` - Get hierarchy (starts from logged-in user's entity)
+   - `GET /api/search` - Global search (includes entities, users, profiles, roles, meters)
+   - `GET /api/search/:type/:id/hierarchy` - Get path (returns path-only, no siblings)
 
 3. **Response Structure**:
-   - Category-wise grouped results
+   - Category-wise grouped results (including meters)
    - Pagination metadata
-   - Hierarchy tree structure starting from user's entity
+   - **Path array** (not tree) starting from user's entity
    - Selected resource marked with `isSelected: true`
 
-4. **Hierarchy Behavior**:
+4. **Path Behavior**:
+   - **Returns ONLY the exact path** - no siblings, no other children
    - **Always starts from logged-in user's entity** (not from selected resource)
-   - Root Admin sees from ETL Admin
-   - KMP Admin sees from KMP Energy
-   - Ideal Energy Admin sees from Ideal Energy
-   - Selected resource is highlighted in the tree
-   - Provides complete context of organizational structure
+   - Root Admin sees path from ETL Admin
+   - KMP Admin sees path from KMP Energy
+   - Ideal Energy Admin sees path from Ideal Energy
+   - Selected resource is highlighted with `isSelected: true` in the path array
+   - Returns linear path: `[Entity1, Entity2, Entity3, SelectedResource]`
+   - Example: Ritik → KMP Admin → Patanjali Customer → X Consumer → Meter X
 
 5. **Best Practices**:
    - Implement debouncing (300ms)
@@ -1258,10 +1440,13 @@ export const GlobalSearch: React.FC = () => {
 - [ ] Search with empty query (should not make API call)
 - [ ] Search with valid query (should return results)
 - [ ] Search with type filter (should filter results)
-- [ ] Click on entity result (should show hierarchy)
-- [ ] Click on user result (should show hierarchy)
-- [ ] Click on profile result (should show hierarchy)
-- [ ] Click on role result (should show hierarchy)
+- [ ] Click on entity result (should show path)
+- [ ] Click on user result (should show path)
+- [ ] Click on profile result (should show path)
+- [ ] Click on role result (should show path)
+- [ ] Click on meter result (should show path)
+- [ ] Verify path shows only direct path (no siblings)
+- [ ] Verify path starts from logged-in user's entity
 - [ ] Test pagination (load more results)
 - [ ] Test error handling (invalid query, network error)
 - [ ] Test unauthorized access (should redirect to login)

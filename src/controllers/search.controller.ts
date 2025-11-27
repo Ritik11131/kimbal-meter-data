@@ -4,6 +4,7 @@ import { createEntityService } from "../services/entity.service"
 import { createUserService } from "../services/user.service"
 import { createProfileService } from "../services/profile.service"
 import { createRoleService } from "../services/role.service"
+import { createMeterService } from "../services/meter.service"
 import { sendResponse, sendError } from "../utils/response"
 import { HTTP_STATUS } from "../config/constants"
 import { AppError } from "../middleware/errorHandler"
@@ -15,6 +16,7 @@ const entityService = createEntityService()
 const userService = createUserService()
 const profileService = createProfileService()
 const roleService = createRoleService()
+const meterService = createMeterService()
 
 /**
  * Global search across all resource types
@@ -38,7 +40,7 @@ export const globalSearch = async (req: Request, res: Response) => {
     if (type) {
       if (typeof type === "string") {
         const typeArray = type.split(",").map((t) => t.trim()) as SearchResourceType[]
-        const validTypes: SearchResourceType[] = ["entity", "user", "profile", "role"]
+        const validTypes: SearchResourceType[] = ["entity", "user", "profile", "role", "meter"]
         const invalidTypes = typeArray.filter((t) => !validTypes.includes(t))
         if (invalidTypes.length > 0) {
           throw new AppError(`Invalid resource types: ${invalidTypes.join(", ")}`, HTTP_STATUS.BAD_REQUEST)
@@ -98,7 +100,7 @@ export const getHierarchy = async (req: Request, res: Response) => {
     const paginateRootChildren = extracted.paginateRootChildren as boolean | undefined
 
     // Validate resource type
-    const validTypes: SearchResourceType[] = ["entity", "user", "profile", "role"]
+    const validTypes: SearchResourceType[] = ["entity", "user", "profile", "role", "meter"]
     if (!validTypes.includes(type as SearchResourceType)) {
       throw new AppError(
         `Invalid resource type. Must be one of: ${validTypes.join(", ")}`,
@@ -107,38 +109,36 @@ export const getHierarchy = async (req: Request, res: Response) => {
     }
 
     // Route to appropriate service based on type
-    // All hierarchies now start from logged-in user's entity
+    // All paths now return ONLY the exact path from logged-in user's entity to selected resource
+    // No siblings, no other children - just the direct path
     switch (type) {
       case "entity": {
-        const options = {
-          depth,
-          page,
-          limit,
-          paginateRootChildren: paginateRootChildren || false,
-        }
-        const hierarchy = await entityService.getEntityHierarchyFromUserEntity(id, req.user!, options)
-        sendResponse(res, HTTP_STATUS.OK, hierarchy, "Entity hierarchy retrieved", req.path)
+        const path = await entityService.getEntityPathFromUserEntity(id, req.user!)
+        sendResponse(res, HTTP_STATUS.OK, path, "Entity path retrieved", req.path)
         break
       }
 
       case "user": {
-        const options = { depth }
-        const hierarchy = await userService.getUserHierarchyFromUserEntity(id, req.user!, options)
-        sendResponse(res, HTTP_STATUS.OK, hierarchy, "User hierarchy retrieved", req.path)
+        const path = await userService.getUserPathFromUserEntity(id, req.user!)
+        sendResponse(res, HTTP_STATUS.OK, path, "User path retrieved", req.path)
         break
       }
 
       case "profile": {
-        const options = { depth }
-        const hierarchy = await profileService.getProfileHierarchyFromUserEntity(id, req.user!, options)
-        sendResponse(res, HTTP_STATUS.OK, hierarchy, "Profile hierarchy retrieved", req.path)
+        const path = await profileService.getProfilePathFromUserEntity(id, req.user!)
+        sendResponse(res, HTTP_STATUS.OK, path, "Profile path retrieved", req.path)
         break
       }
 
       case "role": {
-        const options = { depth }
-        const hierarchy = await roleService.getRoleHierarchyFromUserEntity(id, req.user!, options)
-        sendResponse(res, HTTP_STATUS.OK, hierarchy, "Role hierarchy retrieved", req.path)
+        const path = await roleService.getRolePathFromUserEntity(id, req.user!)
+        sendResponse(res, HTTP_STATUS.OK, path, "Role path retrieved", req.path)
+        break
+      }
+
+      case "meter": {
+        const path = await meterService.getMeterPathFromUserEntity(id, req.user!)
+        sendResponse(res, HTTP_STATUS.OK, path, "Meter path retrieved", req.path)
         break
       }
 

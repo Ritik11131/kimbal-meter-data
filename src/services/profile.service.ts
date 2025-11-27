@@ -2,7 +2,7 @@ import { createProfileRepository } from "../repositories/profile.repository"
 import { createEntityRepository } from "../repositories/entity.repository"
 import { createEntityService } from "./entity.service"
 import type { Profile, CreateProfileDTO, UpdateProfileDTO } from "../types/entities"
-import type { ProfileHierarchyResponse } from "../types/search"
+import type { ProfileHierarchyResponse, ProfilePathResponse, PathItem } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
@@ -181,7 +181,66 @@ export const createProfileService = () => {
   }
 
   /**
+   * Gets exact path from logged-in user's entity to profile (path-only, no siblings)
+   * @param profileId - Profile ID
+   * @param user - Authenticated user context
+   * @returns Profile path response with exact path
+   */
+  const getProfilePathFromUserEntity = async (
+    profileId: string,
+    user: AuthContext
+  ): Promise<ProfilePathResponse> => {
+    try {
+      const profile = await getProfileById(profileId, user)
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId)
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      const path: PathItem[] = []
+
+      // If profile has an entity, get entity path first
+      if (profile.entity_id) {
+        const entityPath = await entityService.getEntityPathFromUserEntity(profile.entity_id, user)
+        path.push(...entityPath.path)
+      }
+
+      // Add profile to path
+      path.push({
+        id: profile.id,
+        name: profile.name,
+        type: "profile",
+        isSelected: true,
+        entityId: profile.entity_id || undefined,
+      })
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "profile",
+          id: profile.id,
+          name: profile.name,
+          entityId: profile.entity_id,
+        },
+        profile,
+        path,
+      }
+    } catch (error) {
+      logger.error("Error fetching profile path:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  /**
    * Gets profile hierarchy starting from logged-in user's entity
+   * @deprecated Use getProfilePathFromUserEntity for path-only results
    * @param profileId - Profile ID
    * @param user - Authenticated user context
    * @param options - Optional depth for entity hierarchy
@@ -259,6 +318,7 @@ export const createProfileService = () => {
     listProfiles,
     getProfileHierarchy,
     getProfileHierarchyFromUserEntity,
+    getProfilePathFromUserEntity,
   }
 }
 

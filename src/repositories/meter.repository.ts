@@ -1,13 +1,17 @@
 import { createBaseRepository } from "./base.repository"
-import { Meter } from "../models/Meter" // Your Sequelize Meter model class
-import type { Meter as MeterType } from "../types/entities" // Meter interface/type if any
-import { getAccessibleEntityIds } from "../utils/hierarchy"
+import { Meter } from "../models/Meter"
+import type { Meter as MeterType, CreateMeterDTO, UpdateMeterDTO } from "../types/entities"
 import { Op } from "sequelize"
 import { buildSearchCondition, hasSearchCondition } from "../utils/search"
 
 export const createMeterRepository = () => {
   const baseRepo = createBaseRepository(Meter)
 
+  /**
+   * Finds all meters by entity ID
+   * @param entityId - Entity ID
+   * @returns Array of meters
+   */
   const findByEntityId = async (entityId: string): Promise<MeterType[]> => {
     return Meter.findAll({
       where: { entity_id: entityId },
@@ -15,34 +19,11 @@ export const createMeterRepository = () => {
     })
   }
 
-  const paginateByEntityId = async (
-    entityId: string,
-    page = 1,
-    limit = 10,
-    search?: string
-  ): Promise<{ data: MeterType[]; total: number }> => {
-    const where: any = { entity_id: entityId }
-    
-    // Add search condition
-    const searchCondition = buildSearchCondition(search, ["name"])
-    if (hasSearchCondition(searchCondition)) {
-      const existingKeys = Object.keys(where).filter(key => key !== 'and' && key !== 'or')
-      if (existingKeys.length > 0) {
-        // Combine existing conditions with search using AND
-        const existingWhere = { ...where }
-        where[Op.and] = [existingWhere, searchCondition]
-        for (const key of existingKeys) {
-          delete where[key]
-        }
-      } else {
-        // No existing conditions, just use search condition directly
-        Object.assign(where, searchCondition)
-      }
-    }
-    
-    return baseRepo.paginate(page, limit, where)
-  }
-
+  /**
+   * Finds meters by meter type
+   * @param meterType - Meter type
+   * @returns Array of meters
+   */
   const findByMeterType = async (meterType: string): Promise<MeterType[]> => {
     return Meter.findAll({
       where: { meter_type: meterType },
@@ -50,31 +31,38 @@ export const createMeterRepository = () => {
     })
   }
 
+  /**
+   * Creates a new meter
+   * @param data - Meter creation data
+   * @param createdBy - User ID of creator
+   * @returns Created meter
+   */
   const createMeter = async (
-    entityId: string,
-    name: string,
-    meterType: string,
-    createdBy: string,
-    tbRefId?: string,
-    tbToken?: string,
-    attributes?: Record<string, any>
-  ): Promise<Meter> => {
+    data: CreateMeterDTO,
+    createdBy?: string
+  ): Promise<MeterType> => {
     return Meter.create({
-      entity_id: entityId,
-      name,
-      meter_type: meterType,
-      tb_ref_id: tbRefId || null,
-      tb_token: tbToken || null,
-      attributes: attributes || null,
-      created_by: createdBy,
+      entity_id: data.entity_id,
+      name: data.name,
+      meter_type: data.meter_type,
+      tb_ref_id: data.tb_ref_id || null,
+      tb_token: data.tb_token || null,
+      attributes: data.attributes || null,
+      created_by: createdBy || null,
     })
   }
 
-  const updateMeter = async (id: string, data: Partial<MeterType>): Promise<Meter | null> => {
+  /**
+   * Updates an existing meter
+   * @param id - Meter ID
+   * @param data - Meter update data
+   * @returns Updated meter or null if not found
+   */
+  const updateMeter = async (id: string, data: UpdateMeterDTO): Promise<MeterType | null> => {
     const meter = await Meter.findByPk(id)
     if (!meter) return null
 
-    const updateData: Partial<MeterType> = {}
+    const updateData: Partial<UpdateMeterDTO> = {}
     if (data.name !== undefined) updateData.name = data.name
     if (data.meter_type !== undefined) updateData.meter_type = data.meter_type
     if (data.tb_ref_id !== undefined) updateData.tb_ref_id = data.tb_ref_id
@@ -85,7 +73,13 @@ export const createMeterRepository = () => {
     return meter
   }
 
+  /**
+   * Finds meters accessible by a user's entity
+   * @param userEntityId - User's entity ID
+   * @returns Array of accessible meters
+   */
   const findByAccessibleEntities = async (userEntityId: string): Promise<MeterType[]> => {
+    const { getAccessibleEntityIds } = await import("../utils/hierarchy")
     const accessibleIds = await getAccessibleEntityIds(userEntityId)
     return Meter.findAll({
       where: { 
@@ -97,21 +91,36 @@ export const createMeterRepository = () => {
     })
   }
 
-  const paginateByAccessibleEntities = async (
-    accessibleEntityIds: string[],
+  /**
+   * Paginates meters with optional filters
+   * @param page - Page number
+   * @param limit - Items per page
+   * @param entityId - Optional entity ID filter
+   * @param accessibleEntityIds - Optional hierarchy filter
+   * @param search - Optional search term
+   * @returns Paginated meter data
+   */
+  const paginateMeters = async (
     page = 1,
     limit = 10,
+    entityId?: string | null,
+    accessibleEntityIds?: string[],
     search?: string
   ): Promise<{ data: MeterType[]; total: number }> => {
     const where: any = {}
     
-    if (accessibleEntityIds.length > 0) {
-      where.entity_id = {
-        [Op.in]: accessibleEntityIds
+    if (entityId !== null && entityId !== undefined) {
+      where.entity_id = entityId
+    } else if (accessibleEntityIds !== undefined) {
+      if (accessibleEntityIds.length > 0) {
+        where.entity_id = {
+          [Op.in]: accessibleEntityIds
+        }
+      } else {
+        where.id = { [Op.in]: [] }
       }
-    } else {
-      where.id = { [Op.in]: [] }
     }
+    // If accessibleEntityIds is undefined, it means root admin - no filter (show all)
     
     // Add search condition
     const searchCondition = buildSearchCondition(search, ["name"])
@@ -136,11 +145,10 @@ export const createMeterRepository = () => {
   return {
     ...baseRepo,
     findByEntityId,
-    paginateByEntityId,
     findByMeterType,
     createMeter,
     updateMeter,
     findByAccessibleEntities,
-    paginateByAccessibleEntities,
+    paginateMeters,
   }
 }

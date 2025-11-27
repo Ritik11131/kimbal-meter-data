@@ -2,7 +2,7 @@ import { createUserRepository } from "../repositories/user.repository"
 import { createRoleRepository } from "../repositories/role.repository"
 import { createEntityRepository } from "../repositories/entity.repository"
 import type { User, CreateUserDTO, UpdateUserDTO, UserWithoutPassword } from "../types/users"
-import type { UserTree, UserHierarchyResponse, EntityTreeWithSelection } from "../types/search"
+import type { UserTree, UserHierarchyResponse, EntityTreeWithSelection, UserPathResponse, PathItem } from "../types/search"
 import { createEntityService } from "./entity.service"
 import { CryptoUtil } from "../utils/cryptography"
 import { AppError } from "../middleware/errorHandler"
@@ -307,7 +307,102 @@ export const createUserService = () => {
   }
 
   /**
+   * Gets exact path from logged-in user's entity to selected user (path-only, no siblings)
+   * @param selectedUserId - The user to find in hierarchy
+   * @param user - Authenticated user context
+   * @returns User path response with exact paths
+   */
+  const getUserPathFromUserEntity = async (
+    selectedUserId: string,
+    user: AuthContext
+  ): Promise<UserPathResponse> => {
+    try {
+      const targetUser = await userRepository.findById(selectedUserId)
+      if (!targetUser) {
+        throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Validate access - user must be in accessible entity
+      await validateEntityAccess(user.entityId, targetUser.entity_id, "user")
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId)
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Get entity path from user's entity to target user's entity
+      const entityPath = await entityService.getEntityPathFromUserEntity(targetUser.entity_id, user)
+      
+      // Get user path: find the actual root user by following created_by chain backwards
+      // Start from target user and go up until we find a user with no created_by (the root)
+      let rootUserId: string | null = selectedUserId
+      const visited = new Set<string>()
+      
+      while (rootUserId && !visited.has(rootUserId)) {
+        visited.add(rootUserId)
+        const currentUser = await userRepository.findById(rootUserId)
+        if (!currentUser) break
+        
+        // If this user has no creator, or creator is not in the same entity, this is the root
+        if (!currentUser.created_by) {
+          break
+        }
+        
+        // Check if creator is in the same entity
+        const creator = await userRepository.findById(currentUser.created_by)
+        if (!creator || creator.entity_id !== targetUser.entity_id) {
+          // Creator is in different entity or doesn't exist, current user is root
+          break
+        }
+        
+        rootUserId = currentUser.created_by
+      }
+      
+      if (!rootUserId) {
+        throw new AppError("Could not determine root user for user path", HTTP_STATUS.NOT_FOUND)
+      }
+
+      // Get user path from root user to target user
+      const userPathData = await userRepository.findUserPath(rootUserId, selectedUserId)
+      
+      // Convert to PathItem format
+      const entityPathItems: PathItem[] = entityPath.path
+      
+      const userPathItems: PathItem[] = userPathData.map((u) => ({
+        id: u.id,
+        name: u.name,
+        type: "user" as const,
+        isSelected: u.id === selectedUserId,
+        email: u.email,
+        entityId: u.entity_id,
+      }))
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "user",
+          id: targetUser.id,
+          name: targetUser.name,
+          entityId: targetUser.entity_id,
+        },
+        entityPath: entityPathItems,
+        userPath: userPathItems,
+      }
+    } catch (error) {
+      logger.error("Error fetching user path from user entity:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  /**
    * Retrieves user hierarchy starting from logged-in user's entity
+   * @deprecated Use getUserPathFromUserEntity for path-only results
    * @param selectedUserId - The user to find in hierarchy
    * @param user - Authenticated user context
    * @param options - Optional depth
@@ -444,5 +539,6 @@ export const createUserService = () => {
     changePassword,
     getUserHierarchy,
     getUserHierarchyFromUserEntity,
+    getUserPathFromUserEntity,
   }
 }

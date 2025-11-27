@@ -2,7 +2,8 @@ import { createEntityRepository } from "./entity.repository"
 import { createUserRepository } from "./user.repository"
 import { createProfileRepository } from "./profile.repository"
 import { createRoleRepository } from "./role.repository"
-import type { Entity } from "../types/entities"
+import { createMeterRepository } from "./meter.repository"
+import type { Entity, Meter } from "../types/entities"
 import type { UserWithoutPassword } from "../types/users"
 import type { Profile, Role } from "../types/entities"
 import type { PaginatedResponse } from "../types/common"
@@ -12,6 +13,7 @@ export const createSearchRepository = () => {
   const userRepo = createUserRepository()
   const profileRepo = createProfileRepository()
   const roleRepo = createRoleRepository()
+  const meterRepo = createMeterRepository()
 
   /**
    * Search entities with pagination and access control
@@ -120,11 +122,38 @@ export const createSearchRepository = () => {
     }
   }
 
+  /**
+   * Search meters with pagination and access control
+   */
+  const searchMeters = async (
+    query: string,
+    page: number,
+    limit: number,
+    accessibleEntityIds?: string[]
+  ): Promise<PaginatedResponse<Meter>> => {
+    const { data, total } = await meterRepo.paginateMeters(
+      page,
+      limit,
+      undefined, // entityId
+      accessibleEntityIds, // Can be undefined for root admin
+      query // search
+    )
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    }
+  }
+
   return {
     searchEntities,
     searchUsers,
     searchProfiles,
     searchRoles,
+    searchMeters,
   }
 }
 

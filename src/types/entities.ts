@@ -88,6 +88,23 @@ export interface UpdateProfileDTO {
   attributes?: Record<string, any> | null
 }
 
+export interface CreateMeterDTO {
+  entity_id: string
+  name: string
+  meter_type: "PHYSICAL" | "VIRTUAL" | "GROUP"
+  attributes?: Record<string, any> | null
+  tb_ref_id?: string | null
+  tb_token?: string | null
+}
+
+export interface UpdateMeterDTO {
+  name?: string
+  meter_type?: "PHYSICAL" | "VIRTUAL" | "GROUP"
+  attributes?: Record<string, any> | null
+  tb_ref_id?: string | null
+  tb_token?: string | null
+}
+
 export interface CreateModuleDTO {
   name: string
 }

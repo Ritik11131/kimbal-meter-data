@@ -14,7 +14,7 @@ const router = Router()
 router.get("/", authenticate, requireReadPermission([MODULES.METER]), validateQuery(meterListQuerySchema), enforceEntityAccessQuery("entityId"), (req, res, next) => meterController.list(req, res).catch(next))
 router.get("/:id", authenticate, requireReadPermission([MODULES.METER]), validateUUIDParams(["id"]), enforceResourceEntityAccess("meter"), (req, res, next) => meterController.getById(req, res).catch(next))
 
-router.post("/", authenticate, requireWritePermission([MODULES.METER]), enforceEntityAccessQuery("entityId"), validate(createMeterSchema), (req, res, next) => {
+router.post("/", authenticate, requireWritePermission([MODULES.METER]), enforceEntityAccessQuery("entity_id"), validate(createMeterSchema), (req, res, next) => {
   meterController.create(req, res).catch(next)
 })
 

@@ -1,5 +1,5 @@
 import type { Entity, CreateEntityDTO, UpdateEntityDTO } from '../types/entities';
-import type { EntityTreeWithSelection, EntityHierarchyResponse } from '../types/search';
+import type { EntityTreeWithSelection, EntityHierarchyResponse, EntityPathResponse, PathItem } from '../types/search';
 import { AppError } from '../middleware/errorHandler';
 import { HTTP_STATUS, ERROR_MESSAGES } from '../config/constants';
 import logger from '../utils/logger';
@@ -311,7 +311,66 @@ export const createEntityService = () => {
   };
 
   /**
+   * Gets exact path from logged-in user's entity to selected entity (path-only, no siblings)
+   * @param selectedEntityId - The entity to find in hierarchy
+   * @param user - Authenticated user context
+   * @returns Path response with exact path from user's entity to selected entity
+   */
+  const getEntityPathFromUserEntity = async (
+    selectedEntityId: string,
+    user: AuthContext
+  ): Promise<EntityPathResponse> => {
+    try {
+      // Validate access to selected entity
+      await validateEntityAccess(user.entityId, selectedEntityId, "entity");
+
+      // Get selected entity info
+      const selectedEntity = await entityRepository.findById(selectedEntityId);
+      if (!selectedEntity) {
+        throw new AppError(ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+      }
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId);
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND);
+      }
+
+      // Get exact path from user's entity to selected entity (no siblings, no other children)
+      const pathEntities = await entityRepository.findEntityPath(user.entityId, selectedEntityId);
+
+      // Convert to PathItem format
+      const path: PathItem[] = pathEntities.map((entity, index) => ({
+        id: entity.id,
+        name: entity.name,
+        type: "entity" as const,
+        isSelected: entity.id === selectedEntityId,
+        email_id: entity.email_id,
+      }));
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "entity",
+          id: selectedEntity.id,
+          name: selectedEntity.name,
+        },
+        path,
+      };
+    } catch (error) {
+      logger.error('Error fetching entity path from user entity:', error);
+      if (error instanceof AppError) throw error;
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    }
+  };
+
+  /**
    * Gets entity hierarchy starting from logged-in user's entity, showing selected entity
+   * @deprecated Use getEntityPathFromUserEntity for path-only results
    * @param selectedEntityId - The entity to find in hierarchy
    * @param user - Authenticated user context
    * @param options - Optional depth, pagination
@@ -368,6 +427,7 @@ export const createEntityService = () => {
     getEntityById,
     getEntityHierarchy,
     getEntityHierarchyFromUserEntity,
+    getEntityPathFromUserEntity,
     markSelectedEntity,
     createEntity,
     updateEntity,

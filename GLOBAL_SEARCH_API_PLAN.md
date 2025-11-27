@@ -9,18 +9,23 @@ A unified global search API that allows searching across **Entities**, **Users**
 ## Requirements
 
 ### 1. Search Functionality
-- Search across multiple resource types: Entities, Users, Profiles, Roles
+- Search across multiple resource types: Entities, Users, Profiles, Roles, **Meters**
 - Category-wise grouping of results
 - Pagination support
 - Filter by resource type (optional)
 - Respect entity access control (users can only see accessible entities)
 
 ### 2. Hierarchy Support
-- After selecting a result, show its complete hierarchy
-- **Entities**: Already have `getHierarchy()` method ✅
-- **Users**: Need to implement `getUserHierarchy()` (via `created_by` relationship)
-- **Profiles**: Check if hierarchy exists (via `entity_id` - profiles belong to entities)
-- **Roles**: Check if hierarchy exists (via `entity_id` - roles belong to entities)
+- After selecting a result, show **ONLY the exact path** from logged-in user's entity to the selected resource
+- **NOT the full tree** - only the direct path (no siblings, no other children)
+- **Example**: If searching for a meter "X" under entity "Patanjali Customer":
+  - Show: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer → Meter X
+  - **NOT**: Full tree with all children of each entity
+- **Entities**: Show path from user's entity to selected entity
+- **Users**: Show path from user's entity to user's entity, then user hierarchy path
+- **Profiles**: Show path from user's entity to profile's entity
+- **Roles**: Show path from user's entity to role's entity
+- **Meters**: Show path from user's entity to meter's entity, then the meter
 
 ### 3. Access Control
 - Users can only search within their accessible entity hierarchy
@@ -104,7 +109,7 @@ GET /api/search?q=admin&type=profile
 **`GET /api/search/:type/:id/hierarchy`**
 
 #### Path Parameters
-- `type`: Resource type (`entity`, `user`, `profile`, `role`)
+- `type`: Resource type (`entity`, `user`, `profile`, `role`, `meter`)
 - `id`: Resource ID (UUID)
 
 #### Query Parameters
@@ -115,80 +120,237 @@ GET /api/search?q=admin&type=profile
 
 #### Response Structure
 
-**For Entities** (existing functionality):
+**Important**: All hierarchy responses show **ONLY the exact path** from logged-in user's entity to the selected resource. No siblings, no other children - just the direct path.
+
+**For Entities**:
 ```json
 {
   "success": true,
   "message": "Entity hierarchy retrieved",
   "data": {
-    "id": "entity-uuid",
-    "name": "KMP Energy",
-    "children": [
+    "userEntity": {
+      "id": "ritik-entity-id",
+      "name": "Ritik (Root)"
+    },
+    "selectedResource": {
+      "type": "entity",
+      "id": "patanjali-entity-id",
+      "name": "Patanjali Customer"
+    },
+    "path": [
       {
-        "id": "child-uuid",
-        "name": "Ideal Energy",
-        "children": [...]
+        "id": "ritik-entity-id",
+        "name": "Ritik (Root)",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Admin",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "patanjali-entity-id",
+        "name": "Patanjali Customer",
+        "type": "entity",
+        "isSelected": true
       }
     ]
   }
 }
 ```
 
-**For Users** (new functionality):
+**For Meters**:
+```json
+{
+  "success": true,
+  "message": "Meter hierarchy retrieved",
+  "data": {
+    "userEntity": {
+      "id": "ritik-entity-id",
+      "name": "Ritik (Root)"
+    },
+    "selectedResource": {
+      "type": "meter",
+      "id": "meter-x-id",
+      "name": "Meter X",
+      "entityId": "x-consumer-entity-id"
+    },
+    "path": [
+      {
+        "id": "ritik-entity-id",
+        "name": "Ritik (Root)",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Admin",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "patanjali-entity-id",
+        "name": "Patanjali Customer",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "x-consumer-entity-id",
+        "name": "X Consumer",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "meter-x-id",
+        "name": "Meter X",
+        "type": "meter",
+        "isSelected": true
+      }
+    ]
+  }
+}
+```
+
+**For Users**:
 ```json
 {
   "success": true,
   "message": "User hierarchy retrieved",
   "data": {
-    "id": "user-uuid",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "entity": {
-      "id": "entity-uuid",
-      "name": "KMP Energy"
+    "userEntity": {
+      "id": "ritik-entity-id",
+      "name": "Ritik (Root)"
     },
-    "children": [
+    "selectedResource": {
+      "type": "user",
+      "id": "jane-user-id",
+      "name": "Jane Doe",
+      "entityId": "patanjali-entity-id"
+    },
+    "entityPath": [
       {
-        "id": "child-user-uuid",
+        "id": "ritik-entity-id",
+        "name": "Ritik (Root)",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Admin",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "patanjali-entity-id",
+        "name": "Patanjali Customer",
+        "type": "entity",
+        "isSelected": false
+      }
+    ],
+    "userPath": [
+      {
+        "id": "john-user-id",
+        "name": "John Doe",
+        "type": "user",
+        "isSelected": false
+      },
+      {
+        "id": "jane-user-id",
         "name": "Jane Doe",
-        "email": "jane@example.com",
-        "children": [...]
+        "type": "user",
+        "isSelected": true
       }
     ]
   }
 }
 ```
 
-**For Profiles** (entity-based hierarchy):
+**For Profiles**:
 ```json
 {
   "success": true,
   "message": "Profile hierarchy retrieved",
   "data": {
-    "id": "profile-uuid",
-    "name": "Tenant Profile",
-    "entity": {
-      "id": "entity-uuid",
-      "name": "KMP Energy",
-      "children": [...]
-    }
+    "userEntity": {
+      "id": "ritik-entity-id",
+      "name": "Ritik (Root)"
+    },
+    "selectedResource": {
+      "type": "profile",
+      "id": "profile-id",
+      "name": "Tenant Profile",
+      "entityId": "kmp-entity-id"
+    },
+    "profile": {
+      "id": "profile-id",
+      "name": "Tenant Profile"
+    },
+    "path": [
+      {
+        "id": "ritik-entity-id",
+        "name": "Ritik (Root)",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Admin",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "profile-id",
+        "name": "Tenant Profile",
+        "type": "profile",
+        "isSelected": true
+      }
+    ]
   }
 }
 ```
 
-**For Roles** (entity-based hierarchy):
+**For Roles**:
 ```json
 {
   "success": true,
   "message": "Role hierarchy retrieved",
   "data": {
-    "id": "role-uuid",
-    "name": "Admin Role",
-    "entity": {
-      "id": "entity-uuid",
-      "name": "KMP Energy",
-      "children": [...]
-    }
+    "userEntity": {
+      "id": "ritik-entity-id",
+      "name": "Ritik (Root)"
+    },
+    "selectedResource": {
+      "type": "role",
+      "id": "role-id",
+      "name": "Admin Role",
+      "entityId": "kmp-entity-id"
+    },
+    "role": {
+      "id": "role-id",
+      "name": "Admin Role"
+    },
+    "path": [
+      {
+        "id": "ritik-entity-id",
+        "name": "Ritik (Root)",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Admin",
+        "type": "entity",
+        "isSelected": false
+      },
+      {
+        "id": "role-id",
+        "name": "Admin Role",
+        "type": "role",
+        "isSelected": true
+      }
+    ]
   }
 }
 ```
@@ -224,17 +386,28 @@ GET /api/search?q=admin&type=profile
 - `globalSearch()`: Main search function
   - Accepts query, type filter, pagination params
   - Calls respective repository methods
-  - Groups results by category
+  - Groups results by category (including meters)
   - Returns paginated, categorized results
 
-#### 2.2 Extend `user.service.ts`
-- `getUserHierarchy()`: Build user hierarchy tree
-  - Similar to `getEntityHierarchy()` in entity service
-  - Build tree from flat array of users
+#### 2.2 Extend `entity.service.ts`
+- `getEntityPath()`: Get exact path from user's entity to selected entity
+  - Uses ancestor chain (no siblings, no other children)
+  - Returns linear path array, not tree structure
 
-#### 2.3 Extend `profile.service.ts` and `role.service.ts`
-- `getProfileHierarchy()`: Get profile with entity hierarchy
-- `getRoleHierarchy()`: Get role with entity hierarchy
+#### 2.3 Extend `user.service.ts`
+- `getUserPath()`: Get exact path from user's entity to selected user
+  - Entity path: from user's entity to selected user's entity
+  - User path: from root user to selected user (via created_by chain)
+  - Returns path arrays, not full trees
+
+#### 2.4 Extend `profile.service.ts` and `role.service.ts`
+- `getProfilePath()`: Get exact path from user's entity to profile
+- `getRolePath()`: Get exact path from user's entity to role
+
+#### 2.5 Extend `meter.service.ts`
+- `getMeterPath()`: Get exact path from user's entity to meter
+  - Entity path: from user's entity to meter's entity
+  - Then the meter itself
 
 ### Phase 3: Controller Layer
 
@@ -265,16 +438,33 @@ GET /api/search?q=admin&type=profile
 
 ## Database Queries
 
-### User Hierarchy Query (Recursive CTE)
+### Entity Path Query (Ancestors Only - No Siblings)
+To get the exact path from user's entity to target entity:
 ```sql
-WITH RECURSIVE user_tree AS (
-  SELECT *, 0 as depth FROM users WHERE id = :userId
+-- Step 1: Get all ancestors of target entity (including itself)
+WITH RECURSIVE target_ancestors AS (
+  SELECT id, entity_id, name, email_id, 0 as depth FROM entities WHERE id = :targetEntityId
   UNION ALL
-  SELECT u.*, ut.depth + 1 as depth FROM users u
-  INNER JOIN user_tree ut ON u.created_by = ut.id
-  WHERE u.is_deleted = false AND ut.depth + 1 <= COALESCE(:maxDepth, 999)
+  SELECT e.id, e.entity_id, e.name, e.email_id, ta.depth + 1 
+  FROM entities e
+  INNER JOIN target_ancestors ta ON e.id = ta.entity_id
+  WHERE e.id IS NOT NULL
 )
-SELECT * FROM user_tree ORDER BY depth, creation_time;
+SELECT * FROM target_ancestors ORDER BY depth DESC;
+```
+
+Then filter to only include entities from user's entity down to target (path only).
+
+### User Path Query (Via created_by)
+```sql
+WITH RECURSIVE user_path AS (
+  SELECT *, 0 as depth FROM users WHERE id = :targetUserId
+  UNION ALL
+  SELECT u.*, up.depth + 1 as depth FROM users u
+  INNER JOIN user_path up ON u.id = up.created_by
+  WHERE u.is_deleted = false AND u.id IS NOT NULL
+)
+SELECT * FROM user_path ORDER BY depth DESC;
 ```
 
 ### Search Queries
@@ -366,20 +556,22 @@ src/
 │   └── search.controller.ts          # NEW
 ├── services/
 │   ├── search.service.ts             # NEW
-│   ├── user.service.ts                # EXTEND (add getUserHierarchy)
-│   ├── profile.service.ts             # EXTEND (add getProfileHierarchy)
-│   └── role.service.ts                # EXTEND (add getRoleHierarchy)
+│   ├── entity.service.ts             # EXTEND (add getEntityPath)
+│   ├── user.service.ts                # EXTEND (add getUserPath)
+│   ├── profile.service.ts             # EXTEND (add getProfilePath)
+│   ├── role.service.ts                # EXTEND (add getRolePath)
+│   └── meter.service.ts               # EXTEND (add getMeterPath, add to search)
 ├── repositories/
-│   ├── search.repository.ts           # NEW
-│   ├── user.repository.ts             # EXTEND (add findUserHierarchy)
-│   ├── profile.repository.ts          # EXTEND (add findWithEntityHierarchy)
-│   └── role.repository.ts             # EXTEND (add findWithEntityHierarchy)
+│   ├── search.repository.ts           # NEW (add searchMeters)
+│   ├── entity.repository.ts           # EXTEND (add findEntityPath)
+│   ├── user.repository.ts             # EXTEND (add findUserPath)
+│   └── meter.repository.ts            # EXTEND (if needed for search)
 ├── routes/
 │   └── search.routes.ts               # NEW
 ├── validators/
-│   └── search.validator.ts            # NEW
+│   └── search.validator.ts            # NEW (add meter type)
 └── types/
-    └── search.ts                      # NEW (type definitions)
+    └── search.ts                      # NEW (type definitions, add meter types)
 ```
 
 ---

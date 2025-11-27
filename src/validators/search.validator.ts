@@ -5,9 +5,9 @@ import { QUERY_VALIDATION } from "../config/constants"
  * Search resource type enum
  */
 export const searchResourceTypeSchema = Joi.string()
-  .valid("entity", "user", "profile", "role")
+  .valid("entity", "user", "profile", "role", "meter")
   .messages({
-    "any.only": "type must be one of: entity, user, profile, role",
+    "any.only": "type must be one of: entity, user, profile, role, meter",
   })
 
 /**
@@ -30,7 +30,7 @@ export const globalSearchQuerySchema = Joi.object({
       Joi.string().custom((value, helpers) => {
         // Handle comma-separated types like "entity,user"
         const types = value.split(",").map((t: string) => t.trim())
-        const validTypes = ["entity", "user", "profile", "role"]
+        const validTypes = ["entity", "user", "profile", "role", "meter"]
         const invalidTypes = types.filter((t: string) => !validTypes.includes(t))
         if (invalidTypes.length > 0) {
           return helpers.error("any.invalid", { message: `Invalid types: ${invalidTypes.join(", ")}` })

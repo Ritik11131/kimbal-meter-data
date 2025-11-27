@@ -32,7 +32,7 @@ export const createSearchService = () => {
       const accessibleEntityIds = isRoot ? undefined : await getAccessibleEntityIds(user.entityId)
 
       // Determine which types to search
-      const typesToSearch: SearchResourceType[] = types || ["entity", "user", "profile", "role"]
+      const typesToSearch: SearchResourceType[] = types || ["entity", "user", "profile", "role", "meter"]
 
       // Execute searches in parallel for better performance
       const searchPromises: Promise<any>[] = []
@@ -77,13 +77,24 @@ export const createSearchService = () => {
         )
       }
 
-      const [entities, users, profiles, roles] = await Promise.all(searchPromises)
+      if (typesToSearch.includes("meter")) {
+        searchPromises.push(
+          searchRepo.searchMeters(query, page, limit, accessibleEntityIds)
+        )
+      } else {
+        searchPromises.push(
+          Promise.resolve({ data: [], total: 0, page, limit, totalPages: 0 })
+        )
+      }
+
+      const [entities, users, profiles, roles, meters] = await Promise.all(searchPromises)
 
       return {
         entities,
         users,
         profiles,
         roles,
+        meters,
       }
     } catch (error) {
       logger.error("Error in global search:", error)

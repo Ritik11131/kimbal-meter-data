@@ -3,7 +3,7 @@ import { createUserRepository } from "../repositories/user.repository"
 import { createEntityService } from "./entity.service"
 import { createEntityRepository } from "../repositories/entity.repository"
 import type { Role } from "../types/entities"
-import type { RoleHierarchyResponse } from "../types/search"
+import type { RoleHierarchyResponse, RolePathResponse, PathItem } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
 import { HTTP_STATUS, ERROR_MESSAGES } from "../config/constants"
 import logger from "../utils/logger"
@@ -180,7 +180,66 @@ export const createRoleService = () => {
   }
 
   /**
+   * Gets exact path from logged-in user's entity to role (path-only, no siblings)
+   * @param roleId - Role ID
+   * @param user - Authenticated user context
+   * @returns Role path response with exact path
+   */
+  const getRolePathFromUserEntity = async (
+    roleId: string,
+    user: AuthContext
+  ): Promise<RolePathResponse> => {
+    try {
+      const role = await getRoleById(roleId, user)
+
+      // Get user's entity info
+      const userEntity = await entityRepository.findById(user.entityId)
+      if (!userEntity) {
+        throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
+      }
+
+      const path: PathItem[] = []
+
+      // If role has an entity, get entity path first
+      if (role.entity_id) {
+        const entityPath = await entityService.getEntityPathFromUserEntity(role.entity_id, user)
+        path.push(...entityPath.path)
+      }
+
+      // Add role to path
+      path.push({
+        id: role.id,
+        name: role.name,
+        type: "role",
+        isSelected: true,
+        entityId: role.entity_id || undefined,
+      })
+
+      return {
+        userEntity: {
+          id: userEntity.id,
+          name: userEntity.name,
+          email_id: userEntity.email_id,
+        },
+        selectedResource: {
+          type: "role",
+          id: role.id,
+          name: role.name,
+          entityId: role.entity_id,
+        },
+        role,
+        path,
+      }
+    } catch (error) {
+      logger.error("Error fetching role path:", error)
+      if (error instanceof AppError) throw error
+      throw new AppError(ERROR_MESSAGES.DATABASE_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+    }
+  }
+
+  /**
    * Gets role hierarchy starting from logged-in user's entity
+   * @deprecated Use getRolePathFromUserEntity for path-only results
    * @param roleId - Role ID
    * @param user - Authenticated user context
    * @param options - Optional depth for entity hierarchy
@@ -258,5 +317,6 @@ export const createRoleService = () => {
     deleteRole,
     getRoleHierarchy,
     getRoleHierarchyFromUserEntity,
+    getRolePathFromUserEntity,
   }
 }

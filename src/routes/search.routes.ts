@@ -14,7 +14,7 @@ const router = Router()
 router.get(
   "/",
   authenticate,
-  requireReadPermission([MODULES.ENTITY, MODULES.USER, MODULES.PROFILE, MODULES.ROLE]),
+  requireReadPermission([MODULES.ENTITY, MODULES.USER, MODULES.PROFILE, MODULES.ROLE, MODULES.METER]),
   validateQuery(globalSearchQuerySchema),
   (req, res, next) => searchController.globalSearch(req, res).catch(next)
 )
@@ -41,6 +41,9 @@ router.get(
         break
       case "role":
         module = MODULES.ROLE
+        break
+      case "meter":
+        module = MODULES.METER
         break
       default:
         return res.status(400).json({

@@ -1,11 +1,11 @@
-import type { Entity, Profile, Role } from "./entities"
+import type { Entity, Profile, Role, Meter } from "./entities"
 import type { UserWithoutPassword } from "./users"
 import type { PaginatedResponse } from "./common"
 
 /**
  * Resource types that can be searched
  */
-export type SearchResourceType = "entity" | "user" | "profile" | "role"
+export type SearchResourceType = "entity" | "user" | "profile" | "role" | "meter"
 
 /**
  * Global search result grouped by resource type
@@ -15,6 +15,7 @@ export interface GlobalSearchResult {
   users: PaginatedResponse<UserWithoutPassword>
   profiles: PaginatedResponse<Profile>
   roles: PaginatedResponse<Role>
+  meters: PaginatedResponse<Meter>
 }
 
 /**
@@ -120,5 +121,111 @@ export interface RoleHierarchyResponse {
   }
   role: Role
   entityHierarchy?: EntityTreeWithSelection
+}
+
+/**
+ * Path item in hierarchy path
+ */
+export interface PathItem {
+  id: string
+  name: string
+  type: "entity" | "user" | "profile" | "role" | "meter"
+  isSelected: boolean
+  email_id?: string
+  email?: string
+  entityId?: string
+}
+
+/**
+ * Entity path response (path-only, no siblings)
+ */
+export interface EntityPathResponse {
+  userEntity: {
+    id: string
+    name: string
+    email_id?: string
+  }
+  selectedResource: {
+    type: "entity"
+    id: string
+    name: string
+  }
+  path: PathItem[]
+}
+
+/**
+ * User path response (path-only)
+ */
+export interface UserPathResponse {
+  userEntity: {
+    id: string
+    name: string
+    email_id?: string
+  }
+  selectedResource: {
+    type: "user"
+    id: string
+    name: string
+    entityId: string
+  }
+  entityPath: PathItem[]
+  userPath: PathItem[]
+}
+
+/**
+ * Profile path response (path-only)
+ */
+export interface ProfilePathResponse {
+  userEntity: {
+    id: string
+    name: string
+    email_id?: string
+  }
+  selectedResource: {
+    type: "profile"
+    id: string
+    name: string
+    entityId: string | null
+  }
+  profile: Profile
+  path: PathItem[]
+}
+
+/**
+ * Role path response (path-only)
+ */
+export interface RolePathResponse {
+  userEntity: {
+    id: string
+    name: string
+    email_id?: string
+  }
+  selectedResource: {
+    type: "role"
+    id: string
+    name: string
+    entityId: string | null
+  }
+  role: Role
+  path: PathItem[]
+}
+
+/**
+ * Meter path response (path-only)
+ */
+export interface MeterPathResponse {
+  userEntity: {
+    id: string
+    name: string
+    email_id?: string
+  }
+  selectedResource: {
+    type: "meter"
+    id: string
+    name: string
+    entityId: string
+  }
+  meter: Meter
+  path: PathItem[]
 }
 

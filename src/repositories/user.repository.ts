@@ -200,6 +200,71 @@ export const createUserRepository = () => {
   }
 
   /**
+   * Finds the exact path from root user to target user (via created_by, no siblings)
+   * @param rootUserId - Root user ID (starting point)
+   * @param targetUserId - Target user ID (end point)
+   * @returns Array of users in path order (from root to target)
+   */
+  const findUserPath = async (rootUserId: string, targetUserId: string): Promise<UserType[]> => {
+    try {
+      const sequelize = getSequelize()
+      
+      // Get all ancestors of target user (via created_by, including target itself)
+      const [targetAncestors] = await sequelize.query(`
+        WITH RECURSIVE user_path AS (
+          SELECT *, 0 as depth FROM users WHERE id = :targetUserId AND is_deleted = false
+          UNION ALL
+          SELECT u.*, up.depth + 1 as depth FROM users u
+          INNER JOIN user_path up ON u.id = up.created_by
+          WHERE u.is_deleted = false AND u.id IS NOT NULL
+        )
+        SELECT * FROM user_path ORDER BY depth DESC;
+      `, {
+        replacements: { targetUserId },
+      }) as [any[], any]
+      
+      // Convert to UserType array
+      const allUsers = targetAncestors.map((row: any) => {
+        if (row && typeof row.get === 'function') {
+          return row.get() as UserType
+        }
+        if (row && row.dataValues) {
+          return row.dataValues as UserType
+        }
+        return row as UserType
+      })
+      
+      // Build path by following created_by relationships from target back to root
+      const userMap = new Map<string, UserType>()
+      allUsers.forEach(user => userMap.set(user.id, user))
+      
+      const path: UserType[] = []
+      let currentId: string | null = targetUserId
+      const visited = new Set<string>()
+      
+      // Traverse from target up to root
+      while (currentId && !visited.has(currentId)) {
+        visited.add(currentId)
+        const user = userMap.get(currentId)
+        if (!user) break
+        
+        path.unshift(user) // Add to beginning to maintain root -> target order
+        
+        if (currentId === rootUserId) {
+          break
+        }
+        
+        currentId = user.created_by
+      }
+      
+      return path
+    } catch (error) {
+      logger.error("Find user path failed:", error)
+      throw error
+    }
+  }
+
+  /**
    * Finds user hierarchy using recursive CTE query (via created_by relationship)
    * @param userId - Root user ID
    * @param maxDepth - Optional maximum depth
@@ -269,5 +334,6 @@ export const createUserRepository = () => {
     findByAccessibleEntities,
     paginateByAccessibleEntities,
     findUserHierarchy,
+    findUserPath,
   }
 }
