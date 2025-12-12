@@ -1,1 +1,2 @@
-web: chmod +x scripts/setup-ssh-tunnel.sh scripts/start-with-tunnel.sh && ./scripts/start-with-tunnel.sh
+web: npm run build && npm start
+
