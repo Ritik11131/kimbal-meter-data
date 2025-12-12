@@ -54,48 +54,48 @@ echo "✅ SSH configuration complete"
 # Start SSH tunnel in background
 echo "🚀 Starting SSH tunnel: localhost:55432 -> $SSH_HOST:5432"
 
-# Use autossh if available, otherwise use ssh with keepalive
-if command -v autossh &> /dev/null; then
-    echo "Using autossh for persistent connection..."
-    autossh -M 0 -f -N \
+# Function to start tunnel
+start_tunnel() {
+    ssh -N \
         -L 55432:localhost:5432 \
         -o "ServerAliveInterval=60" \
         -o "ServerAliveCountMax=3" \
         -o "ExitOnForwardFailure=yes" \
-        db-tunnel
-else
-    echo "Using ssh with keepalive..."
-    ssh -f -N \
-        -L 55432:localhost:5432 \
-        -o "ServerAliveInterval=60" \
-        -o "ServerAliveCountMax=3" \
-        -o "ExitOnForwardFailure=yes" \
-        db-tunnel
-fi
+        -o "StrictHostKeyChecking=no" \
+        -o "UserKnownHostsFile=/dev/null" \
+        -i ~/.ssh/etl-mumbai.pem \
+        "$SSH_USER@$SSH_HOST" 2>&1
+}
+
+# Start tunnel in background
+start_tunnel &
+TUNNEL_PID=$!
 
 # Wait a moment for tunnel to establish
-sleep 2
+sleep 3
 
 # Verify tunnel is running
 if pgrep -f "ssh.*55432:localhost:5432" > /dev/null; then
-    echo "✅ SSH tunnel is active on port 55432"
+    echo "✅ SSH tunnel is active on port 55432 (PID: $TUNNEL_PID)"
 else
     echo "❌ ERROR: SSH tunnel failed to start"
     exit 1
 fi
 
 # Keep script running and monitor tunnel
-echo "📡 Monitoring SSH tunnel..."
+echo "📡 Monitoring SSH tunnel (PID: $TUNNEL_PID)..."
 while true; do
-    if ! pgrep -f "ssh.*55432:localhost:5432" > /dev/null; then
-        echo "⚠️  SSH tunnel disconnected, attempting to reconnect..."
-        ssh -f -N \
-            -L 55432:localhost:5432 \
-            -o "ServerAliveInterval=60" \
-            -o "ServerAliveCountMax=3" \
-            -o "ExitOnForwardFailure=yes" \
-            db-tunnel
-        sleep 2
+    if ! kill -0 $TUNNEL_PID 2>/dev/null; then
+        echo "⚠️  SSH tunnel disconnected (PID: $TUNNEL_PID), attempting to reconnect..."
+        start_tunnel &
+        TUNNEL_PID=$!
+        sleep 3
+        
+        if ! pgrep -f "ssh.*55432:localhost:5432" > /dev/null; then
+            echo "❌ ERROR: Failed to reconnect SSH tunnel"
+            exit 1
+        fi
+        echo "✅ SSH tunnel reconnected (PID: $TUNNEL_PID)"
     fi
     sleep 10
 done

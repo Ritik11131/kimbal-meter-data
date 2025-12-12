@@ -59,35 +59,33 @@ CORS_ORIGIN=*
 2. Copy **everything** including `-----BEGIN` and `-----END` lines
 3. Paste into Railway's `SSH_KEY` variable
 
-### 4. Set Up SSH Tunnel Service
+### 4. Verify Configuration
 
-**Option A: Separate Service (Recommended)**
+The `Procfile` is already configured to:
+- ✅ Automatically start the SSH tunnel if `SSH_KEY`, `SSH_HOST`, and `SSH_USER` are set
+- ✅ Wait for the tunnel to be ready (up to 30 seconds)
+- ✅ Build and start your application
 
-1. In Railway, click **"+ New"** → **"Empty Service"**
-2. Name it: **"SSH Tunnel"**
-3. **Start Command:** `chmod +x scripts/setup-ssh-tunnel.sh && ./scripts/setup-ssh-tunnel.sh`
-4. Add variables: `SSH_KEY`, `SSH_HOST=plane.etlab.co`, `SSH_USER=ubuntu`
-
-**Option B: Single Service**
-
-1. Rename `Procfile.tunnel` to `Procfile`
-2. Or update `Procfile` to include tunnel setup
+**No additional setup needed!** The tunnel will start automatically when the service starts.
 
 ### 5. Deploy
 
 Railway will automatically:
 - ✅ Install dependencies
 - ✅ Build the project
-- ✅ Start services
-- ✅ Set up SSH tunnel
-- ✅ Start your backend
+- ✅ Set up SSH tunnel (if configured)
+- ✅ Wait for tunnel to be ready
+- ✅ Start your backend with automatic database connection retries
 
 ### 6. Verify
 
 1. Check **Logs** tab in Railway
 2. Look for: `✅ SSH tunnel is active on port 55432`
-3. Look for: `🚀 Server running on port 3000`
-4. Test: `https://your-app.railway.app/health`
+3. Look for: `✅ PostgreSQL connection authenticated successfully`
+4. Look for: `🚀 Server running on port 3000`
+5. Test: `https://your-app.railway.app/health`
+
+**Note:** If you see connection retries, that's normal. The app will retry up to 5 times with 5-second delays.
 
 ---
 
@@ -95,11 +93,11 @@ Railway will automatically:
 
 - [ ] Code pushed to GitHub
 - [ ] Railway project created
-- [ ] Environment variables added
-- [ ] SSH tunnel service running (if separate)
+- [ ] Environment variables added (including `SSH_KEY`, `SSH_HOST`, `SSH_USER`)
+- [ ] SSH tunnel started automatically (check logs)
 - [ ] Backend service running
-- [ ] Health endpoint responding
-- [ ] Database connection working
+- [ ] Health endpoint responding (`/health`)
+- [ ] Database connection working (check for "✅ PostgreSQL connection authenticated")
 
 ---
 
@@ -108,8 +106,11 @@ Railway will automatically:
 **"SSH tunnel failed"**
 → Check SSH_KEY includes BEGIN/END lines
 
-**"Database connection timeout"**
-→ Wait 10 seconds after tunnel starts, then restart backend
+**"Database connection timeout" or "SequelizeConnectionRefusedError"**
+→ The app now automatically retries 5 times. Check that:
+  - SSH tunnel is running (look for "✅ SSH tunnel is active")
+  - `DB_HOST=localhost` and `DB_PORT=55432` are set
+  - All SSH variables (`SSH_KEY`, `SSH_HOST`, `SSH_USER`) are configured
 
 **"Build failed"**
 → Check Node.js version (should be 18+)

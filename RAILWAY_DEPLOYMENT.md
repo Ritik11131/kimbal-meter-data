@@ -200,12 +200,25 @@ Railway should auto-detect, but verify:
 
 3. **Expected logs:**
    ```
+   🚀 Starting application with SSH tunnel...
+   📡 SSH tunnel configuration detected
+   🔌 Starting SSH tunnel...
    🔌 Setting up SSH tunnel to database server...
    ✅ SSH configuration complete
    🚀 Starting SSH tunnel: localhost:55432 -> plane.etlab.co:5432
-   ✅ SSH tunnel is active on port 55432
+   ✅ SSH tunnel is active on port 55432 (PID: xxxx)
+   📡 Monitoring SSH tunnel (PID: xxxx)...
+   ✅ SSH tunnel is ready on port 55432
+   🔨 Building application...
    ✅ Sequelize connection established
+   ✅ Models initialized successfully
    🚀 Server running on port 3000 in production mode
+   ```
+
+   **Note:** If connection fails initially, you'll see retry attempts:
+   ```
+   ❌ Attempt 1/5 to connect to PostgreSQL failed: ...
+   ⏳ Retrying in 5 seconds...
    ```
 
 ---
@@ -215,8 +228,15 @@ Railway should auto-detect, but verify:
 ### Procfile
 
 ```procfile
-web: npm run build && npm start
+web: chmod +x scripts/setup-ssh-tunnel.sh scripts/start-with-tunnel.sh && ./scripts/start-with-tunnel.sh
 ```
+
+**Note:** The `start-with-tunnel.sh` script will:
+1. Check for SSH tunnel configuration
+2. Start the SSH tunnel if configured
+3. Wait for the tunnel to be ready (up to 30 seconds)
+4. Build the application
+5. Start the Node.js server
 
 ### railway.json
 
@@ -224,13 +244,16 @@ web: npm run build && npm start
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "npm run build"
+    "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npm start",
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
+    "startCommand": "chmod +x scripts/setup-ssh-tunnel.sh scripts/start-with-tunnel.sh && ./scripts/start-with-tunnel.sh",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 300,
+    "restartPolicy": {
+      "maxRetries": 10,
+      "wait": 20
+    }
   }
 }
 ```
@@ -247,13 +270,15 @@ web: npm run build && npm start
 3. ✅ Ensure PEM key has proper permissions (script handles this)
 4. ✅ Check Railway logs for SSH connection errors
 
-### Issue: "Database connection timeout"
+### Issue: "Database connection timeout" or "SequelizeConnectionRefusedError"
 
 **Solutions:**
-1. ✅ Verify SSH tunnel service is running
-2. ✅ Check `DB_HOST=localhost` and `DB_PORT=55432`
-3. ✅ Ensure tunnel service started before backend service
-4. ✅ Add startup delay: `sleep 10` before starting backend
+1. ✅ Verify SSH tunnel service is running (check logs for "✅ SSH tunnel is active")
+2. ✅ Check `DB_HOST=localhost` and `DB_PORT=55432` in environment variables
+3. ✅ The app now has automatic retry logic (5 retries with 5-second delays)
+4. ✅ Check Railway logs to see if tunnel started successfully
+5. ✅ Verify the tunnel port is listening: The script checks for port 55432 before starting the app
+6. ✅ Ensure `SSH_KEY`, `SSH_HOST`, and `SSH_USER` are all set correctly
 
 ### Issue: "Permission denied (publickey)"
 
