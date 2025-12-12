@@ -8,8 +8,6 @@
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "start:with-tunnel": "bash scripts/start-with-tunnel.sh",
-    "setup-tunnel": "bash scripts/setup-ssh-tunnel.sh",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "db:migrate": "sequelize-cli db:migrate",
