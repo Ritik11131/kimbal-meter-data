@@ -1,0 +1,4 @@
+# Alternative Procfile that includes SSH tunnel setup
+# Use this if you want a single service instead of separate tunnel service
+web: chmod +x scripts/setup-ssh-tunnel.sh && scripts/setup-ssh-tunnel.sh & sleep 10 && npm run build && npm start
+
