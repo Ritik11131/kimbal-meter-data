@@ -1,6 +1,7 @@
 import { createMeterRepository } from "../repositories/meter.repository"
 import { createEntityService } from "./entity.service"
 import { createEntityRepository } from "../repositories/entity.repository"
+import { createUserRepository } from "../repositories/user.repository"
 import type { Meter, CreateMeterDTO, UpdateMeterDTO } from "../types/entities"
 import type { MeterPathResponse, PathItem } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
@@ -14,6 +15,7 @@ export const createMeterService = () => {
   const meterRepository = createMeterRepository()
   const entityService = createEntityService()
   const entityRepository = createEntityRepository()
+  const userRepository = createUserRepository()
 
   /**
    * Retrieves a meter by ID and validates access
@@ -160,7 +162,7 @@ export const createMeterService = () => {
    * Gets exact path from logged-in user's entity to meter (path-only, no siblings)
    * @param meterId - Meter ID
    * @param user - Authenticated user context
-   * @returns Meter path response with exact path
+   * @returns Meter path response with exact entity path and user path
    */
   const getMeterPathFromUserEntity = async (
     meterId: string,
@@ -178,17 +180,27 @@ export const createMeterService = () => {
       // Get entity path from user's entity to meter's entity
       const entityPath = await entityService.getEntityPathFromUserEntity(meter.entity_id, user)
 
-      // Build complete path: entity path + meter
-      const path: PathItem[] = [...entityPath.path]
+      // Get user path: from logged-in user to meter creator
+      const meterCreatorId = meter.created_by
+      const creatorUser = await userRepository.findById(meterCreatorId)
+      if (!creatorUser) {
+        throw new AppError("Meter creator not found", HTTP_STATUS.NOT_FOUND)
+      }
 
-      // Add meter to path
-      path.push({
-        id: meter.id,
-        name: meter.name,
-        type: "meter",
-        isSelected: true,
-        entityId: meter.entity_id,
-      })
+      // Get user path from logged-in user to meter creator
+      const userPathData = await userRepository.findUserPathFromLoggedInUser(user.userId, meterCreatorId)
+      
+      // Convert to PathItem format
+      const entityPathItems: PathItem[] = entityPath.path
+      
+      const userPathItems: PathItem[] = userPathData.map((u) => ({
+        id: u.id,
+        name: u.name,
+        type: "user" as const,
+        isSelected: u.id === meterCreatorId,
+        email: u.email,
+        entityId: u.entity_id,
+      }))
 
       return {
         userEntity: {
@@ -203,7 +215,8 @@ export const createMeterService = () => {
           entityId: meter.entity_id,
         },
         meter,
-        path,
+        entityPath: entityPathItems,
+        userPath: userPathItems,
       }
     } catch (error) {
       logger.error("Error fetching meter path:", error)

@@ -1,6 +1,7 @@
 import { createProfileRepository } from "../repositories/profile.repository"
 import { createEntityRepository } from "../repositories/entity.repository"
 import { createEntityService } from "./entity.service"
+import { createUserRepository } from "../repositories/user.repository"
 import type { Profile, CreateProfileDTO, UpdateProfileDTO } from "../types/entities"
 import type { ProfileHierarchyResponse, ProfilePathResponse, PathItem } from "../types/search"
 import { AppError } from "../middleware/errorHandler"
@@ -14,6 +15,7 @@ export const createProfileService = () => {
   const profileRepository = createProfileRepository()
   const entityRepository = createEntityRepository()
   const entityService = createEntityService()
+  const userRepository = createUserRepository()
 
   /**
    * Retrieves a profile by ID and validates access
@@ -184,7 +186,7 @@ export const createProfileService = () => {
    * Gets exact path from logged-in user's entity to profile (path-only, no siblings)
    * @param profileId - Profile ID
    * @param user - Authenticated user context
-   * @returns Profile path response with exact path
+   * @returns Profile path response with exact entity path and user path
    */
   const getProfilePathFromUserEntity = async (
     profileId: string,
@@ -199,22 +201,36 @@ export const createProfileService = () => {
         throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
       }
 
-      const path: PathItem[] = []
-
-      // If profile has an entity, get entity path first
+      // Get entity path if profile has an entity
+      const entityPathItems: PathItem[] = []
       if (profile.entity_id) {
         const entityPath = await entityService.getEntityPathFromUserEntity(profile.entity_id, user)
-        path.push(...entityPath.path)
+        entityPathItems.push(...entityPath.path)
       }
 
-      // Add profile to path
-      path.push({
-        id: profile.id,
-        name: profile.name,
-        type: "profile",
-        isSelected: true,
-        entityId: profile.entity_id || undefined,
-      })
+      // Get user path: from logged-in user to profile creator
+      let userPathItems: PathItem[] = []
+      if (profile.created_by) {
+        const profileCreatorId = profile.created_by
+        const creatorUser = await userRepository.findById(profileCreatorId)
+        if (!creatorUser) {
+          // Creator not found, skip user path
+          userPathItems = []
+        } else {
+          // Get user path from logged-in user to profile creator
+          const userPathData = await userRepository.findUserPathFromLoggedInUser(user.userId, profileCreatorId)
+          
+          // Convert to PathItem format
+          userPathItems = userPathData.map((u) => ({
+            id: u.id,
+            name: u.name,
+            type: "user" as const,
+            isSelected: u.id === profileCreatorId,
+            email: u.email,
+            entityId: u.entity_id,
+          }))
+        }
+      }
 
       return {
         userEntity: {
@@ -229,7 +245,8 @@ export const createProfileService = () => {
           entityId: profile.entity_id,
         },
         profile,
-        path,
+        entityPath: entityPathItems,
+        userPath: userPathItems,
       }
     } catch (error) {
       logger.error("Error fetching profile path:", error)

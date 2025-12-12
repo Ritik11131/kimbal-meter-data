@@ -200,6 +200,181 @@ export const createUserRepository = () => {
   }
 
   /**
+   * Finds the exact path from logged-in user to target user (via created_by, no siblings)
+   * If logged-in user is not an ancestor of target, returns path from root in target's entity to target
+   * @param loggedInUserId - Logged-in user ID (starting point)
+   * @param targetUserId - Target user ID (end point)
+   * @returns Array of users in path order (from logged-in user to target, or from root to target)
+   */
+  const findUserPathFromLoggedInUser = async (
+    loggedInUserId: string,
+    targetUserId: string
+  ): Promise<UserType[]> => {
+    try {
+      const sequelize = getSequelize()
+      
+      // Get all ancestors of target user (via created_by, including target itself)
+      const [targetAncestors] = await sequelize.query(`
+        WITH RECURSIVE user_path AS (
+          SELECT *, 0 as depth FROM users WHERE id = :targetUserId AND is_deleted = false
+          UNION ALL
+          SELECT u.*, up.depth + 1 as depth FROM users u
+          INNER JOIN user_path up ON u.id = up.created_by
+          WHERE u.is_deleted = false AND u.id IS NOT NULL
+        )
+        SELECT * FROM user_path ORDER BY depth DESC;
+      `, {
+        replacements: { targetUserId },
+      }) as [any[], any]
+      
+      // Convert to UserType array
+      const allAncestors = targetAncestors.map((row: any) => {
+        if (row && typeof row.get === 'function') {
+          return row.get() as UserType
+        }
+        if (row && row.dataValues) {
+          return row.dataValues as UserType
+        }
+        return row as UserType
+      })
+      
+      // Check if logged-in user is in the ancestor chain
+      const ancestorMap = new Map<string, UserType>()
+      allAncestors.forEach(user => ancestorMap.set(user.id, user))
+      
+      if (ancestorMap.has(loggedInUserId)) {
+        // Logged-in user is an ancestor, build path from logged-in user to target
+        const path: UserType[] = []
+        let currentId: string | null = targetUserId
+        const visited = new Set<string>()
+        
+        while (currentId && !visited.has(currentId)) {
+          visited.add(currentId)
+          const user = ancestorMap.get(currentId)
+          if (!user) break
+          
+          path.unshift(user) // Add to beginning to maintain order
+          
+          if (currentId === loggedInUserId) {
+            break
+          }
+          
+          currentId = user.created_by
+        }
+        
+        return path
+      } else {
+        // Logged-in user is not a direct ancestor
+        // Try to find if logged-in user created any user in the ancestor chain (via descendants)
+        const sequelize = getSequelize()
+        
+        // Get all descendants of logged-in user
+        const [loggedInDescendants] = await sequelize.query(`
+          WITH RECURSIVE user_descendants AS (
+            SELECT *, 0 as depth FROM users WHERE id = :loggedInUserId AND is_deleted = false
+            UNION ALL
+            SELECT u.*, ud.depth + 1 as depth FROM users u
+            INNER JOIN user_descendants ud ON u.created_by = ud.id
+            WHERE u.is_deleted = false AND u.id IS NOT NULL
+          )
+          SELECT * FROM user_descendants;
+        `, {
+          replacements: { loggedInUserId },
+        }) as [any[], any]
+        
+        const descendantMap = new Map<string, UserType>()
+        loggedInDescendants.forEach((row: any) => {
+          const user = row && typeof row.get === 'function' 
+            ? row.get() as UserType
+            : row && row.dataValues
+            ? row.dataValues as UserType
+            : row as UserType
+          descendantMap.set(user.id, user)
+        })
+        
+        // Check if target user is a descendant of logged-in user
+        if (descendantMap.has(targetUserId)) {
+          // Build path from logged-in user to target
+          const path: UserType[] = []
+          let currentId: string | null = targetUserId
+          const visited = new Set<string>()
+          
+          while (currentId && !visited.has(currentId)) {
+            visited.add(currentId)
+            const user = descendantMap.get(currentId)
+            if (!user) break
+            
+            path.unshift(user)
+            
+            if (currentId === loggedInUserId) {
+              break
+            }
+            
+            currentId = user.created_by
+          }
+          
+          return path
+        }
+        
+        // If no connection found, find root in target's entity and build path from there
+        const targetUser = await findById(targetUserId)
+        if (!targetUser) {
+          return []
+        }
+        
+        // Find root user in target's entity
+        let rootUserId: string | null = targetUserId
+        const rootVisited = new Set<string>()
+        
+        while (rootUserId && !rootVisited.has(rootUserId)) {
+          rootVisited.add(rootUserId)
+          const currentUser = ancestorMap.get(rootUserId)
+          if (!currentUser) break
+          
+          if (!currentUser.created_by) {
+            break
+          }
+          
+          const creator = ancestorMap.get(currentUser.created_by)
+          if (!creator || creator.entity_id !== targetUser.entity_id) {
+            break
+          }
+          
+          rootUserId = currentUser.created_by
+        }
+        
+        if (!rootUserId) {
+          return []
+        }
+        
+        // Build path from root to target
+        const path: UserType[] = []
+        let currentId: string | null = targetUserId
+        const pathVisited = new Set<string>()
+        
+        while (currentId && !pathVisited.has(currentId)) {
+          pathVisited.add(currentId)
+          const user = ancestorMap.get(currentId)
+          if (!user) break
+          
+          path.unshift(user)
+          
+          if (currentId === rootUserId) {
+            break
+          }
+          
+          currentId = user.created_by
+        }
+        
+        return path
+      }
+    } catch (error) {
+      logger.error("Find user path from logged-in user failed:", error)
+      throw error
+    }
+  }
+
+  /**
    * Finds the exact path from root user to target user (via created_by, no siblings)
    * @param rootUserId - Root user ID (starting point)
    * @param targetUserId - Target user ID (end point)
@@ -335,5 +510,6 @@ export const createUserRepository = () => {
     paginateByAccessibleEntities,
     findUserHierarchy,
     findUserPath,
+    findUserPathFromLoggedInUser,
   }
 }

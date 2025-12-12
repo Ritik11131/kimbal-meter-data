@@ -336,37 +336,8 @@ export const createUserService = () => {
       // Get entity path from user's entity to target user's entity
       const entityPath = await entityService.getEntityPathFromUserEntity(targetUser.entity_id, user)
       
-      // Get user path: find the actual root user by following created_by chain backwards
-      // Start from target user and go up until we find a user with no created_by (the root)
-      let rootUserId: string | null = selectedUserId
-      const visited = new Set<string>()
-      
-      while (rootUserId && !visited.has(rootUserId)) {
-        visited.add(rootUserId)
-        const currentUser = await userRepository.findById(rootUserId)
-        if (!currentUser) break
-        
-        // If this user has no creator, or creator is not in the same entity, this is the root
-        if (!currentUser.created_by) {
-          break
-        }
-        
-        // Check if creator is in the same entity
-        const creator = await userRepository.findById(currentUser.created_by)
-        if (!creator || creator.entity_id !== targetUser.entity_id) {
-          // Creator is in different entity or doesn't exist, current user is root
-          break
-        }
-        
-        rootUserId = currentUser.created_by
-      }
-      
-      if (!rootUserId) {
-        throw new AppError("Could not determine root user for user path", HTTP_STATUS.NOT_FOUND)
-      }
-
-      // Get user path from root user to target user
-      const userPathData = await userRepository.findUserPath(rootUserId, selectedUserId)
+      // Get user path: from logged-in user to target user
+      const userPathData = await userRepository.findUserPathFromLoggedInUser(user.userId, selectedUserId)
       
       // Convert to PathItem format
       const entityPathItems: PathItem[] = entityPath.path

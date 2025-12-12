@@ -22,10 +22,10 @@ A unified global search API that allows searching across **Entities**, **Users**
   - Show: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer → Meter X
   - **NOT**: Full tree with all children of each entity
 - **Entities**: Show path from user's entity to selected entity
-- **Users**: Show path from user's entity to user's entity, then user hierarchy path
-- **Profiles**: Show path from user's entity to profile's entity
-- **Roles**: Show path from user's entity to role's entity
-- **Meters**: Show path from user's entity to meter's entity, then the meter
+- **Users**: Show entity path from user's entity to user's entity, then user hierarchy path from logged-in user to selected user
+- **Profiles**: Show entity path from user's entity to profile's entity, then user path from logged-in user to profile creator
+- **Roles**: Show entity path from user's entity to role's entity, then user path from logged-in user to role creator
+- **Meters**: Show entity path from user's entity to meter's entity, then user path from logged-in user to meter creator, then the meter
 
 ### 3. Access Control
 - Users can only search within their accessible entity hierarchy
@@ -177,7 +177,12 @@ GET /api/search?q=admin&type=profile
       "name": "Meter X",
       "entityId": "x-consumer-entity-id"
     },
-    "path": [
+    "meter": {
+      "id": "meter-x-id",
+      "name": "Meter X",
+      "entity_id": "x-consumer-entity-id"
+    },
+    "entityPath": [
       {
         "id": "ritik-entity-id",
         "name": "Ritik (Root)",
@@ -201,11 +206,19 @@ GET /api/search?q=admin&type=profile
         "name": "X Consumer",
         "type": "entity",
         "isSelected": false
+      }
+    ],
+    "userPath": [
+      {
+        "id": "logged-in-user-id",
+        "name": "Logged In User",
+        "type": "user",
+        "isSelected": false
       },
       {
-        "id": "meter-x-id",
-        "name": "Meter X",
-        "type": "meter",
+        "id": "meter-creator-id",
+        "name": "Meter Creator",
+        "type": "user",
         "isSelected": true
       }
     ]
@@ -287,7 +300,7 @@ GET /api/search?q=admin&type=profile
       "id": "profile-id",
       "name": "Tenant Profile"
     },
-    "path": [
+    "entityPath": [
       {
         "id": "ritik-entity-id",
         "name": "Ritik (Root)",
@@ -299,11 +312,19 @@ GET /api/search?q=admin&type=profile
         "name": "KMP Admin",
         "type": "entity",
         "isSelected": false
+      }
+    ],
+    "userPath": [
+      {
+        "id": "logged-in-user-id",
+        "name": "Logged In User",
+        "type": "user",
+        "isSelected": false
       },
       {
-        "id": "profile-id",
-        "name": "Tenant Profile",
-        "type": "profile",
+        "id": "profile-creator-id",
+        "name": "Profile Creator",
+        "type": "user",
         "isSelected": true
       }
     ]
@@ -331,7 +352,7 @@ GET /api/search?q=admin&type=profile
       "id": "role-id",
       "name": "Admin Role"
     },
-    "path": [
+    "entityPath": [
       {
         "id": "ritik-entity-id",
         "name": "Ritik (Root)",
@@ -343,11 +364,19 @@ GET /api/search?q=admin&type=profile
         "name": "KMP Admin",
         "type": "entity",
         "isSelected": false
+      }
+    ],
+    "userPath": [
+      {
+        "id": "logged-in-user-id",
+        "name": "Logged In User",
+        "type": "user",
+        "isSelected": false
       },
       {
-        "id": "role-id",
-        "name": "Admin Role",
-        "type": "role",
+        "id": "role-creator-id",
+        "name": "Role Creator",
+        "type": "user",
         "isSelected": true
       }
     ]
@@ -402,11 +431,16 @@ GET /api/search?q=admin&type=profile
 
 #### 2.4 Extend `profile.service.ts` and `role.service.ts`
 - `getProfilePath()`: Get exact path from user's entity to profile
+  - Entity path: from user's entity to profile's entity
+  - User path: from logged-in user to profile creator (via created_by)
 - `getRolePath()`: Get exact path from user's entity to role
+  - Entity path: from user's entity to role's entity
+  - User path: from logged-in user to role creator (via created_by)
 
 #### 2.5 Extend `meter.service.ts`
 - `getMeterPath()`: Get exact path from user's entity to meter
   - Entity path: from user's entity to meter's entity
+  - User path: from logged-in user to meter creator (via created_by)
   - Then the meter itself
 
 ### Phase 3: Controller Layer

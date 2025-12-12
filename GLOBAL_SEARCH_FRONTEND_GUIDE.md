@@ -12,8 +12,16 @@ This guide provides complete documentation for integrating the Global Search API
 - **No other children** - Only entities/users in the path to the selected resource
 - **Linear path structure** - Returns a simple array, not a full tree
 
+**Response Structure**:
+- **Entities**: Returns a single `path` array (entity path only)
+- **Users**: Returns `entityPath` (entity hierarchy) and `userPath` (user hierarchy)
+- **Profiles**: Returns `entityPath` (entity hierarchy) and `userPath` (user hierarchy to profile creator)
+- **Roles**: Returns `entityPath` (entity hierarchy) and `userPath` (user hierarchy to role creator)
+- **Meters**: Returns `entityPath` (entity hierarchy) and `userPath` (user hierarchy to meter creator)
+
 **Example**: If searching for a meter "X" under entity "Patanjali Customer":
-- **Shows**: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer → Meter X
+- **Entity Path**: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer
+- **User Path**: Root User → Meter Creator
 - **Does NOT show**: Other children of KMP Admin, other children of Patanjali Customer, or other meters
 
 The hierarchy always starts from the **logged-in user's entity**:
@@ -84,12 +92,17 @@ GET /api/search?q=meter&type=meter
 - If logged in as **Root Admin (ETL Admin)**, path starts from ETL Admin
 - If logged in as **KMP Admin**, path starts from KMP Admin
 - If logged in as **Ideal Energy**, path starts from Ideal Energy
-- The selected resource is highlighted with `isSelected: true` in the path array
-- Returns a **linear path array**, not a tree structure
+- The selected resource/creator is highlighted with `isSelected: true` in the path array
+- Returns **linear path arrays**, not tree structures
+
+**Response Structure**:
+- **Entities**: Single `path` array (entity path only)
+- **Users, Profiles, Roles, Meters**: `entityPath` array (entity hierarchy) and `userPath` array (user hierarchy to creator)
 
 **Example Path**: 
 - Searching for meter "X" under "Patanjali Customer":
-- **Path**: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer → Meter X
+- **Entity Path**: Ritik (Root) → KMP Admin → Patanjali Customer → X Consumer
+- **User Path**: Root User → Meter Creator
 - **NOT shown**: Other children of KMP Admin, other children of Patanjali Customer, other meters
 
 **Authentication**: Required (JWT token in Authorization header)
@@ -460,21 +473,24 @@ interface ProfilePathResponse {
   userEntity: { id: string; name: string; email_id?: string };
   selectedResource: { type: 'profile'; id: string; name: string; entityId: string | null };
   profile: any;
-  path: PathItem[];
+  entityPath: PathItem[];
+  userPath: PathItem[];
 }
 
 interface RolePathResponse {
   userEntity: { id: string; name: string; email_id?: string };
   selectedResource: { type: 'role'; id: string; name: string; entityId: string | null };
   role: any;
-  path: PathItem[];
+  entityPath: PathItem[];
+  userPath: PathItem[];
 }
 
 interface MeterPathResponse {
   userEntity: { id: string; name: string; email_id?: string };
   selectedResource: { type: 'meter'; id: string; name: string; entityId: string };
   meter: any;
-  path: PathItem[];
+  entityPath: PathItem[];
+  userPath: PathItem[];
 }
 
 interface HierarchyViewProps {
@@ -543,7 +559,18 @@ export const HierarchyView = ({ hierarchy, type }: HierarchyViewProps) => {
         <div className="path-header">
           <h3>Path from {hierarchy.userEntity.name}</h3>
         </div>
-        {renderPath(hierarchy.path)}
+        {hierarchy.entityPath.length > 0 && (
+          <div className="path-section">
+            <h4>Entity Path:</h4>
+            {renderPath(hierarchy.entityPath)}
+          </div>
+        )}
+        {hierarchy.userPath.length > 0 && (
+          <div className="path-section">
+            <h4>User Path:</h4>
+            {renderPath(hierarchy.userPath)}
+          </div>
+        )}
       </div>
     );
   };
@@ -554,7 +581,18 @@ export const HierarchyView = ({ hierarchy, type }: HierarchyViewProps) => {
         <div className="path-header">
           <h3>Path from {hierarchy.userEntity.name}</h3>
         </div>
-        {renderPath(hierarchy.path)}
+        {hierarchy.entityPath.length > 0 && (
+          <div className="path-section">
+            <h4>Entity Path:</h4>
+            {renderPath(hierarchy.entityPath)}
+          </div>
+        )}
+        {hierarchy.userPath.length > 0 && (
+          <div className="path-section">
+            <h4>User Path:</h4>
+            {renderPath(hierarchy.userPath)}
+          </div>
+        )}
       </div>
     );
   };
@@ -565,7 +603,18 @@ export const HierarchyView = ({ hierarchy, type }: HierarchyViewProps) => {
         <div className="path-header">
           <h3>Path from {hierarchy.userEntity.name}</h3>
         </div>
-        {renderPath(hierarchy.path)}
+        {hierarchy.entityPath.length > 0 && (
+          <div className="path-section">
+            <h4>Entity Path:</h4>
+            {renderPath(hierarchy.entityPath)}
+          </div>
+        )}
+        {hierarchy.userPath.length > 0 && (
+          <div className="path-section">
+            <h4>User Path:</h4>
+            {renderPath(hierarchy.userPath)}
+          </div>
+        )}
       </div>
     );
   };
@@ -918,7 +967,7 @@ Authorization: Bearer <jwt_token>
       "creation_time": "2024-01-17T08:00:00Z",
       "last_update_on": "2024-01-17T08:00:00Z"
     },
-    "path": [
+    "entityPath": [
       {
         "id": "kmp-entity-id",
         "name": "KMP Energy",
@@ -932,12 +981,23 @@ Authorization: Bearer <jwt_token>
         "type": "entity",
         "isSelected": false,
         "email_id": "contact@idealenergy.com"
+      }
+    ],
+    "userPath": [
+      {
+        "id": "root-user-id",
+        "name": "Root User",
+        "type": "user",
+        "isSelected": false,
+        "email": "root@example.com",
+        "entityId": "ideal-entity-id"
       },
       {
-        "id": "profile-id",
-        "name": "Tenant Profile",
-        "type": "profile",
+        "id": "dd0e8400-e29b-41d4-a716-446655440008",
+        "name": "Profile Creator",
+        "type": "user",
         "isSelected": true,
+        "email": "creator@example.com",
         "entityId": "ideal-entity-id"
       }
     ]
@@ -949,12 +1009,106 @@ Authorization: Bearer <jwt_token>
 
 **Note**:
 - Shows entity path from logged-in user's entity (KMP Energy) to profile's entity (Ideal Energy)
-- Profile is marked with `isSelected: true`
+- Shows user path from root user (in profile creator's entity) to profile creator
+- Profile creator is marked with `isSelected: true` in user path
 - **Only the direct path is shown** - no siblings, no other children
 
 ---
 
-### Example 6: Get Meter Path
+### Example 6: Get Role Path
+
+**Scenario**: User logged in as "KMP Admin", searching for role "Admin Role" that belongs to "Ideal Energy" entity
+
+**Request**:
+```http
+GET /api/search/role/role-id/hierarchy
+Authorization: Bearer <jwt_token>
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Role path retrieved",
+  "data": {
+    "userEntity": {
+      "id": "kmp-entity-id",
+      "name": "KMP Energy",
+      "email_id": "contact@kmpenergy.com"
+    },
+    "selectedResource": {
+      "type": "role",
+      "id": "role-id",
+      "name": "Admin Role",
+      "entityId": "ideal-entity-id"
+    },
+    "role": {
+      "id": "role-id",
+      "name": "Admin Role",
+      "entity_id": "ideal-entity-id",
+      "attributes": {
+        "roles": [
+          {
+            "moduleId": "module-1",
+            "name": "Dashboard",
+            "read": true,
+            "write": false
+          }
+        ]
+      },
+      "created_by": "ee0e8400-e29b-41d4-a716-446655440009",
+      "creation_time": "2024-01-18T09:00:00Z",
+      "last_update_on": "2024-01-18T09:00:00Z"
+    },
+    "entityPath": [
+      {
+        "id": "kmp-entity-id",
+        "name": "KMP Energy",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@kmpenergy.com"
+      },
+      {
+        "id": "ideal-entity-id",
+        "name": "Ideal Energy",
+        "type": "entity",
+        "isSelected": false,
+        "email_id": "contact@idealenergy.com"
+      }
+    ],
+    "userPath": [
+      {
+        "id": "root-user-id",
+        "name": "Root User",
+        "type": "user",
+        "isSelected": false,
+        "email": "root@example.com",
+        "entityId": "ideal-entity-id"
+      },
+      {
+        "id": "ee0e8400-e29b-41d4-a716-446655440009",
+        "name": "Role Creator",
+        "type": "user",
+        "isSelected": true,
+        "email": "creator@example.com",
+        "entityId": "ideal-entity-id"
+      }
+    ]
+  },
+  "timestamp": 1705564800000,
+  "path": "/api/search/role/role-id/hierarchy"
+}
+```
+
+**Note**:
+- Shows entity path from logged-in user's entity (KMP Energy) to role's entity (Ideal Energy)
+- Shows user path from root user (in role creator's entity) to role creator
+- Role creator is marked with `isSelected: true` in user path
+- **Only the direct path is shown** - no siblings, no other children
+
+---
+
+### Example 7: Get Meter Path
 
 **Scenario**: User logged in as "Root Admin (Ritik)", searching for meter "Meter X" under entity "X Consumer"
 
@@ -993,7 +1147,7 @@ Authorization: Bearer <jwt_token>
       "creation_time": "2024-01-20T10:00:00Z",
       "last_update_on": "2024-01-20T10:00:00Z"
     },
-    "path": [
+    "entityPath": [
       {
         "id": "ritik-entity-id",
         "name": "Ritik (Root)",
@@ -1021,12 +1175,23 @@ Authorization: Bearer <jwt_token>
         "type": "entity",
         "isSelected": false,
         "email_id": "contact@xconsumer.com"
+      }
+    ],
+    "userPath": [
+      {
+        "id": "root-user-id",
+        "name": "Root User",
+        "type": "user",
+        "isSelected": false,
+        "email": "root@example.com",
+        "entityId": "x-consumer-entity-id"
       },
       {
-        "id": "meter-x-id",
-        "name": "Meter X",
-        "type": "meter",
+        "id": "880e8400-e29b-41d4-a716-446655440003",
+        "name": "Meter Creator",
+        "type": "user",
         "isSelected": true,
+        "email": "creator@example.com",
         "entityId": "x-consumer-entity-id"
       }
     ]
@@ -1037,10 +1202,12 @@ Authorization: Bearer <jwt_token>
 ```
 
 **Note**:
-- Shows exact path from logged-in user's entity (Ritik Root) to meter's entity (X Consumer), then the meter itself
-- Meter is marked with `isSelected: true`
+- Shows entity path from logged-in user's entity (Ritik Root) to meter's entity (X Consumer)
+- Shows user path from root user (in meter creator's entity) to meter creator
+- Meter creator is marked with `isSelected: true` in user path
 - **Only the direct path is shown** - no siblings, no other children
-- Example: Ritik → KMP Admin → Patanjali Customer → X Consumer → Meter X
+- Example Entity Path: Ritik → KMP Admin → Patanjali Customer → X Consumer
+- Example User Path: Root User → Meter Creator
 
 ---
 
@@ -1217,10 +1384,18 @@ const handleSearch = async (query: string) => {
   - 📋 for Profiles
   - 🔐 for Roles
   - ⚡ for Meters
-- **Highlighting**: Clearly highlight the selected resource with `isSelected: true`
+- **Highlighting**: Clearly highlight the selected resource/creator with `isSelected: true`
+- **Dual Path Display**: For Users, Profiles, Roles, and Meters, display both:
+  - **Entity Path**: Shows entity hierarchy from logged-in user's entity to resource's entity
+  - **User Path**: Shows user hierarchy from root user to resource creator
+- **Section Headers**: Use clear section headers like "Entity Path:" and "User Path:" to distinguish the two paths
 - **Breadcrumbs**: Show path as breadcrumbs (Home > KMP > Ideal > Profile)
 - **Loading State**: Show loading indicator while fetching path
-- **Path Format**: Display as: `Entity 1 → Entity 2 → Entity 3 → Selected Resource`
+- **Path Format**: 
+  - **Entities**: `Entity 1 → Entity 2 → Entity 3 → Selected Entity`
+  - **Users/Profiles/Roles/Meters**: 
+    - Entity Path: `Entity 1 → Entity 2 → Entity 3`
+    - User Path: `Root User → Creator User`
 
 ### 4. Mobile Responsiveness
 

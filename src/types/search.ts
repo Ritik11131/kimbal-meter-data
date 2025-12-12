@@ -188,7 +188,8 @@ export interface ProfilePathResponse {
     entityId: string | null
   }
   profile: Profile
-  path: PathItem[]
+  entityPath: PathItem[]
+  userPath: PathItem[]
 }
 
 /**
@@ -207,7 +208,8 @@ export interface RolePathResponse {
     entityId: string | null
   }
   role: Role
-  path: PathItem[]
+  entityPath: PathItem[]
+  userPath: PathItem[]
 }
 
 /**
@@ -226,6 +228,7 @@ export interface MeterPathResponse {
     entityId: string
   }
   meter: Meter
-  path: PathItem[]
+  entityPath: PathItem[]
+  userPath: PathItem[]
 }
 

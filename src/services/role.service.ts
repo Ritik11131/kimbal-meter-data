@@ -183,7 +183,7 @@ export const createRoleService = () => {
    * Gets exact path from logged-in user's entity to role (path-only, no siblings)
    * @param roleId - Role ID
    * @param user - Authenticated user context
-   * @returns Role path response with exact path
+   * @returns Role path response with exact entity path and user path
    */
   const getRolePathFromUserEntity = async (
     roleId: string,
@@ -198,22 +198,36 @@ export const createRoleService = () => {
         throw new AppError("User entity not found", HTTP_STATUS.NOT_FOUND)
       }
 
-      const path: PathItem[] = []
-
-      // If role has an entity, get entity path first
+      // Get entity path if role has an entity
+      const entityPathItems: PathItem[] = []
       if (role.entity_id) {
         const entityPath = await entityService.getEntityPathFromUserEntity(role.entity_id, user)
-        path.push(...entityPath.path)
+        entityPathItems.push(...entityPath.path)
       }
 
-      // Add role to path
-      path.push({
-        id: role.id,
-        name: role.name,
-        type: "role",
-        isSelected: true,
-        entityId: role.entity_id || undefined,
-      })
+      // Get user path: from logged-in user to role creator
+      let userPathItems: PathItem[] = []
+      if (role.created_by) {
+        const roleCreatorId = role.created_by
+        const creatorUser = await userRepository.findById(roleCreatorId)
+        if (!creatorUser) {
+          // Creator not found, skip user path
+          userPathItems = []
+        } else {
+          // Get user path from logged-in user to role creator
+          const userPathData = await userRepository.findUserPathFromLoggedInUser(user.userId, roleCreatorId)
+          
+          // Convert to PathItem format
+          userPathItems = userPathData.map((u) => ({
+            id: u.id,
+            name: u.name,
+            type: "user" as const,
+            isSelected: u.id === roleCreatorId,
+            email: u.email,
+            entityId: u.entity_id,
+          }))
+        }
+      }
 
       return {
         userEntity: {
@@ -228,7 +242,8 @@ export const createRoleService = () => {
           entityId: role.entity_id,
         },
         role,
-        path,
+        entityPath: entityPathItems,
+        userPath: userPathItems,
       }
     } catch (error) {
       logger.error("Error fetching role path:", error)
