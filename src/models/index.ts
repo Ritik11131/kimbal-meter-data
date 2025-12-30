@@ -46,6 +46,7 @@ export const initializeModels = (sequelize: Sequelize) => {
 
   // Profile associations
   Profile.belongsTo(User, { foreignKey: "created_by", as: "creator" })
+  Profile.belongsTo(Entity, { foreignKey: "entity_id", as: "entity" })
 
   // Module associations
   Module.belongsTo(User, { foreignKey: "created_by", as: "creator" })

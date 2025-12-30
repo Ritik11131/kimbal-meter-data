@@ -1,5 +1,6 @@
 import { createBaseRepository } from "./base.repository"
 import { Role } from "../models/Role"
+import { Entity } from "../models/Entity"
 import type { Role as RoleType } from "../types/entities"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
@@ -155,18 +156,34 @@ export const createRoleRepository = () => {
       }
     }
     
-    const { data, total } = await baseRepo.paginate(page, limit, where)
+    // Use base repository with include option to join Entity
+    const result = await baseRepo.paginate(page, limit, where, {
+      include: [{
+        model: Entity,
+        as: "entity",
+        required: false,
+        attributes: ["name", "email_id"]
+      }]
+    })
     
-    // Map Sequelize instances to typed Role objects
-    const mappedData = data.map(roleInstance => ({
-      ...(roleInstance as any).get ? (roleInstance as any).get() : roleInstance,
-      attributes:
-        typeof (roleInstance as any).attributes === "object" && (roleInstance as any).attributes !== null
-          ? ((roleInstance as any).attributes as RoleType["attributes"])
-          : { roles: [] },
-    })) as RoleType[]
+    // Map Sequelize instances to typed Role objects with entity info
+    const mappedData = result.data.map((roleInstance: any) => {
+      const roleData = roleInstance.toJSON ? roleInstance.toJSON() : roleInstance
+      const { entity, ...rest } = roleData
+      return {
+        ...rest,
+        attributes:
+          typeof roleData.attributes === "object" && roleData.attributes !== null
+            ? (roleData.attributes as RoleType["attributes"])
+            : { roles: [] },
+        entity: {
+          name: entity?.name || null,
+          email_id: entity?.email_id || null
+        }
+      }
+    }) as RoleType[]
     
-    return { data: mappedData, total }
+    return { data: mappedData, total: result.total }
   }
 
   return {

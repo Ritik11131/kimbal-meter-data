@@ -15,6 +15,19 @@ export interface User extends BaseEntity {
   creation_time: Date
   last_update_on: Date
   role_id: string
+  entity?: {
+    name: string | null
+    email_id: string | null
+  }
+  role?: {
+    name: string | null
+    permissions: Array<{
+      moduleId: string
+      name: string
+      read: boolean
+      write: boolean
+    }> | null
+  }
 }
 
 export interface UserWithoutPassword extends Omit<User, "password_hash" | "salt"> {}

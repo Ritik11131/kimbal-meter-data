@@ -1,5 +1,6 @@
 import { createBaseRepository } from "./base.repository"
 import { Meter } from "../models/Meter"
+import { Entity } from "../models/Entity"
 import type { Meter as MeterType, CreateMeterDTO, UpdateMeterDTO } from "../types/entities"
 import { Op } from "sequelize"
 import { buildSearchCondition, hasSearchCondition } from "../utils/search"
@@ -139,7 +140,30 @@ export const createMeterRepository = () => {
       }
     }
     
-    return baseRepo.paginate(page, limit, where)
+    // Use base repository with include option to join Entity
+    const result = await baseRepo.paginate(page, limit, where, {
+      include: [{
+        model: Entity,
+        as: "entity",
+        required: false,
+        attributes: ["name", "email_id"]
+      }]
+    })
+    
+    // Map results to include nested entity object
+    const data = result.data.map((meter: any) => {
+      const meterData = meter.toJSON ? meter.toJSON() : meter
+      const { entity, ...rest } = meterData
+      return {
+        ...rest,
+        entity: {
+          name: entity?.name || null,
+          email_id: entity?.email_id || null
+        }
+      }
+    })
+    
+    return { data, total: result.total }
   }
 
   return {

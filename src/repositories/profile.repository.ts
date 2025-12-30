@@ -1,5 +1,6 @@
 import { createBaseRepository } from "./base.repository"
 import { Profile } from "../models/Profile"
+import { Entity } from "../models/Entity"
 import type { Profile as ProfileType, CreateProfileDTO, UpdateProfileDTO } from "../types/entities"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
@@ -133,7 +134,30 @@ export const createProfileRepository = () => {
       }
     }
     
-    return baseRepo.paginate(page, limit, where)
+    // Use base repository with include option to join Entity
+    const result = await baseRepo.paginate(page, limit, where, {
+      include: [{
+        model: Entity,
+        as: "entity",
+        required: false,
+        attributes: ["name", "email_id"]
+      }]
+    })
+    
+    // Map results to include nested entity object
+    const data = result.data.map((profile: any) => {
+      const profileData = profile.toJSON ? profile.toJSON() : profile
+      const { entity, ...rest } = profileData
+      return {
+        ...rest,
+        entity:{
+          name: entity?.name,
+          email_id: entity?.email_id
+        }
+      }
+    })
+    
+    return { data, total: result.total }
   }
 
   return {

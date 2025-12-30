@@ -33,6 +33,10 @@ export interface Profile extends BaseEntity {
   id: string
   name: string
   entity_id: string | null
+  entity?: {
+    name: string | null
+    email_id: string | null
+  }
   attributes: Record<string, any> | null
   created_by: string | null
   creation_time: Date
@@ -43,6 +47,10 @@ export interface Role extends BaseEntity {
   id: string
   entity_id: string | null
   name: string
+  entity?: {
+    name: string | null
+    email_id: string | null
+  }
   attributes: {
     roles: Array<{
       moduleId: string
@@ -61,6 +69,10 @@ export interface Meter extends BaseEntity {
   entity_id: string
   name: string
   meter_type: "PHYSICAL" | "VIRTUAL" | "GROUP"
+  entity?: {
+    name: string | null
+    email_id: string | null
+  }
   attributes: Record<string, any> | null
   tb_ref_id: string | null
   tb_token: string | null

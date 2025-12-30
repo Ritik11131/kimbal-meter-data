@@ -1,5 +1,7 @@
 import { createBaseRepository } from "./base.repository"
 import { User } from "../models/User" // Your Sequelize User model class
+import { Role } from "../models/Role"
+import { Entity } from "../models/Entity"
 import type { User as UserType, CreateUserDTO, UpdateUserDTO } from "../types/users"
 import { getAccessibleEntityIds } from "../utils/hierarchy"
 import { Op } from "sequelize"
@@ -64,10 +66,54 @@ export const createUserRepository = () => {
       }
     }
     
-    const { data, total } = await baseRepo.paginate(page, limit, where)
+    // Use base repository with include option to join Role and Entity
+    const result = await baseRepo.paginate(page, limit, where, {
+      include: [
+        {
+          model: Role,
+          as: "role",
+          required: false,
+          attributes: ["id", "name", "attributes"]
+        },
+        {
+          model: Entity,
+          as: "entity",
+          required: false,
+          attributes: ["name", "email_id"]
+        }
+      ]
+    })
+    
+    // Map results to include nested role and entity objects
+    const mappedData = result.data.map((user: any) => {
+      const userData = user.toJSON ? user.toJSON() : user
+      const { role, entity, ...rest } = userData
+      
+      // Extract permissions from role.attributes.roles
+      let permissions = null
+      if (role?.attributes && typeof role.attributes === 'object' && role.attributes !== null) {
+        const roleAttributes = role.attributes as any
+        if (roleAttributes.roles && Array.isArray(roleAttributes.roles)) {
+          permissions = roleAttributes.roles
+        }
+      }
+      
+      return {
+        ...rest,
+        entity: {
+          name: entity?.name || null,
+          email_id: entity?.email_id || null
+        },
+        role: {
+          name: role?.name || null,
+          permissions: permissions
+        }
+      }
+    })
+    
     return {
-      data: data.map(user => user.get() as UserType),
-      total,
+      data: mappedData as UserType[],
+      total: result.total,
     }
   }
 
@@ -192,10 +238,54 @@ export const createUserRepository = () => {
       }
     }
     
-    const { data, total } = await baseRepo.paginate(page, limit, where)
+    // Use base repository with include option to join Role and Entity
+    const result = await baseRepo.paginate(page, limit, where, {
+      include: [
+        {
+          model: Role,
+          as: "role",
+          required: false,
+          attributes: ["id", "name", "attributes"]
+        },
+        {
+          model: Entity,
+          as: "entity",
+          required: false,
+          attributes: ["name", "email_id"]
+        }
+      ]
+    })
+    
+    // Map results to include nested role and entity objects
+    const mappedData = result.data.map((user: any) => {
+      const userData = user.toJSON ? user.toJSON() : user
+      const { role, entity, ...rest } = userData
+      
+      // Extract permissions from role.attributes.roles
+      let permissions = null
+      if (role?.attributes && typeof role.attributes === 'object' && role.attributes !== null) {
+        const roleAttributes = role.attributes as any
+        if (roleAttributes.roles && Array.isArray(roleAttributes.roles)) {
+          permissions = roleAttributes.roles
+        }
+      }
+      
+      return {
+        ...rest,
+        entity: {
+          name: entity?.name || null,
+          email_id: entity?.email_id || null
+        },
+        role: {
+          name: role?.name || null,
+          permissions: permissions
+        }
+      }
+    })
+    
     return {
-      data: data.map(user => user.get() as UserType),
-      total,
+      data: mappedData as UserType[],
+      total: result.total,
     }
   }
 
